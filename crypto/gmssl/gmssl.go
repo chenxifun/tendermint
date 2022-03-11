@@ -38,11 +38,11 @@ var _ crypto.PubKey = &PubKeySm2{}
 
 
 type PrivKeySm2 struct {
-	key *PrivateKey
+	Key *PrivateKey
 }
 
 type PubKeySm2 struct { 
-	key *PublicKey
+	Key *PublicKey
 }
 
 func (privKey *PrivKeySm2) UnmarshalJSON(sk []byte) error {
@@ -58,7 +58,7 @@ func (privKey *PrivKeySm2) UnmarshalJSON(sk []byte) error {
 	}
 	sm2sk, err := GeneratePrivateKeyByBuffer("EC", sm2keygenargs, nil, buffer[:])
 	PanicError(err)
-	privKey.key = sm2sk
+	privKey.Key = sm2sk
 	return err
 }
 
@@ -69,7 +69,7 @@ func (privKey *PrivKeySm2) MarshalJSON() ([]byte, error) {
 
 
 func (privKey *PrivKeySm2) Bytes() []byte {
-	ret, err := privKey.key.GetKeyBuffer()
+	ret, err := privKey.Key.GetKeyBuffer()
 	PanicError(err)
 	return ret
 }
@@ -86,7 +86,7 @@ func GenPrivKey() *PrivKeySm2 {
 	}
 	sm2sk, err := GeneratePrivateKey("EC", sm2keygenargs, nil)
 	PanicError(err)
-	return &PrivKeySm2{key: sm2sk}
+	return &PrivKeySm2{Key: sm2sk}
 }
 
 func GenPrivKeyByBuf(buffer []byte) *PrivKeySm2 {
@@ -96,7 +96,7 @@ func GenPrivKeyByBuf(buffer []byte) *PrivKeySm2 {
 	}
 	sm2sk, err := GeneratePrivateKeyByBuffer("EC", sm2keygenargs, nil, buffer[:])
 	PanicError(err)
-	return &PrivKeySm2{key :sm2sk}
+	return &PrivKeySm2{Key :sm2sk}
 }
 
 func GenPrivKeyFromSecret(secret []byte) *PrivKeySm2 {
@@ -107,14 +107,14 @@ func GenPrivKeyFromSecret(secret []byte) *PrivKeySm2 {
 	}
 	sm2sk, err := GeneratePrivateKeyBySecret("EC", sm2keygenargs, nil, secHash[:])
 	PanicError(err)
-	return &PrivKeySm2{key :sm2sk}
+	return &PrivKeySm2{Key :sm2sk}
 }
 
 func (privKey *PrivKeySm2) PubKey() crypto.PubKey {
-	sm2pk, err := privKey.key.GetPublicKey()
+	sm2pk, err := privKey.Key.GetPublicKey()
 	PanicError(err)
 
-	return &PubKeySm2{key: sm2pk}
+	return &PubKeySm2{Key: sm2pk}
 }
 
 func (privKey *PrivKeySm2) Sign(msg []byte) ([]byte, error) {
@@ -124,7 +124,7 @@ func (privKey *PrivKeySm2) Sign(msg []byte) ([]byte, error) {
 	PanicError(err)
 	
 	default_uid := "1234567812345678"
-	sm2_zid, err:= privKey.key.ComputeSM2IDDigest(default_uid)
+	sm2_zid, err:= privKey.Key.ComputeSM2IDDigest(default_uid)
 	PanicError(err)
 
 	err = sm3ctx.Update(sm2_zid)
@@ -136,7 +136,7 @@ func (privKey *PrivKeySm2) Sign(msg []byte) ([]byte, error) {
 	digest, err := sm3ctx.Final()
 	PanicError(err)
 
-	sig, err := privKey.key.Sign("sm2sign", digest, nil)
+	sig, err := privKey.Key.Sign("sm2sign", digest, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +180,7 @@ func GenPubKeyByBuf(keyData []byte) *PubKeySm2 {
 	}
 	pubkey, err := GeneratePublicKeyByBuffer("EC", sm2keygenargs, nil, keyData[:])
 	PanicError(err)
-	return &PubKeySm2{key: pubkey}
+	return &PubKeySm2{Key: pubkey}
 }
 
 func (pubKey *PubKeySm2) UnmarshalJSON(pk []byte) error {
@@ -195,7 +195,7 @@ func (pubKey *PubKeySm2) UnmarshalJSON(pk []byte) error {
 	}
 	sm2pk, err := GeneratePublicKeyByBuffer("EC", sm2keygenargs, nil, buffer[:])
 	PanicError(err)
-	pubKey.key = sm2pk
+	pubKey.Key = sm2pk
 	return err
 }
 
@@ -209,7 +209,7 @@ func (pubKey *PubKeySm2) Type() string {
 }
 
 func (pubKey *PubKeySm2) Bytes() []byte {
-	ret, err := pubKey.key.GetKeyBuffer()
+	ret, err := pubKey.Key.GetKeyBuffer()
 	PanicError(err)
 	return ret
 }
@@ -249,7 +249,7 @@ func (pubKey *PubKeySm2) VerifySignature(msg []byte, sig []byte) bool {
 	PanicError(err)
 	
 	default_uid := "1234567812345678"
-	sm2_zid, err := pubKey.key.ComputeSM2IDDigest(default_uid)
+	sm2_zid, err := pubKey.Key.ComputeSM2IDDigest(default_uid)
 	PanicError(err)
 
 	err = sm3ctx.Update(sm2_zid)
@@ -264,7 +264,7 @@ func (pubKey *PubKeySm2) VerifySignature(msg []byte, sig []byte) bool {
 	ret, err := b.Bytes()
 	PanicError(err)
 
-	return pubKey.key.Verify("sm2sign", digest, ret, nil) == nil
+	return pubKey.Key.Verify("sm2sign", digest, ret, nil) == nil
 }
 
 func (pubKey *PubKeySm2) String() string {

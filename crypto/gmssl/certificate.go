@@ -25,7 +25,14 @@ package gmssl
 
 extern long _BIO_get_mem_data(BIO *b, char **pp);
 extern void _OPENSSL_free(void *addr);
-
+int X509_CheckSignature(X509 * root, X509 * cert);
+int X509_CheckSignature(X509 * root, X509 * cert) 
+{
+	EVP_PKEY * PubKey = X509_get_pubkey(root);
+	int ret = X509_verify(cert, PubKey);
+	EVP_PKEY_free(PubKey);
+	return ret;
+}
 
 */
 import "C"
@@ -38,6 +45,15 @@ import (
 
 type Certificate struct {
 	x509 *C.X509
+}
+
+
+func (cert *Certificate) CheckSignatureFrom(root *Certificate) error {
+	ret := C.X509_CheckSignature(root.x509, cert.x509)
+	if ret <= 0 {
+		return GetErrors()
+	}
+	return nil
 }
 
 func NewCertificateFromPEM(pem string, pass string) (*Certificate, error) {
