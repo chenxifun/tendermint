@@ -172,7 +172,6 @@ func (privKey *PrivKeySm2) Equals(other crypto.PrivKey) bool {
 	}
 }
 
-
 func GenPubKeyByBuf(keyData []byte) *PubKeySm2 {
 	sm2keygenargs := [][2]string{
 		{"ec_paramgen_curve", "sm2p256v1"},

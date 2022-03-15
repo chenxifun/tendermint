@@ -522,9 +522,12 @@ unsigned char *sk_derive(EVP_PKEY *sk, const char *alg, EVP_PKEY *peer,
 import "C"
 
 import (
+	"bytes"
 	"errors"
 	"runtime"
 	"unsafe"
+
+	"encoding/json"
 	// "fmt"
 )
 
@@ -634,6 +637,124 @@ type PublicKey struct {
 
 type PrivateKey struct {
 	pkey *C.EVP_PKEY
+}
+
+func (pk PublicKey) Marshal() ([]byte, error) {
+	return pk.GetKeyBuffer()
+}
+
+func (pk *PublicKey) MarshalTo(data []byte) (n int, err error) {
+	pkbuf, err := pk.GetKeyBuffer()
+	copy(data[:], pkbuf)
+	return len(pkbuf), err
+}
+
+func (pk *PublicKey) Unmarshal(data []byte) error {
+	sm2keygenargs := [][2]string{
+		{"ec_paramgen_curve", "sm2p256v1"},
+		{"ec_param_enc", "named_curve"},
+	}
+	sm2pk, err := GeneratePublicKeyByBuffer("EC", sm2keygenargs, nil, data[:])
+	PanicError(err)
+	pk.pkey= sm2pk.pkey
+	return err
+}
+
+func (pk *PublicKey) Size() int {
+	pkbuf, err := pk.GetKeyBuffer()
+	PanicError(err)
+	return len(pkbuf)
+}
+
+func (pk PublicKey) MarshalJSON() ([]byte, error) {
+	pkbuf, err := pk.GetKeyBuffer()
+	PanicError(err)
+	blob, err := json.Marshal(pkbuf[:])
+	return blob[:], err
+}
+
+func (pk *PublicKey) UnmarshalJSON(data []byte) error {
+	var buffer []byte
+	if err := json.Unmarshal(data, &buffer); err != nil {
+		return err
+	}
+
+	sm2keygenargs := [][2]string{
+		{"ec_paramgen_curve", "sm2p256v1"},
+		{"ec_param_enc", "named_curve"},
+	}
+	sm2pk, err := GeneratePublicKeyByBuffer("EC", sm2keygenargs, nil, buffer[:])
+	PanicError(err)
+	pk.pkey= sm2pk.pkey
+	return err
+}
+
+// only required if the equal option is set
+func (pk PublicKey) Equal(other PublicKey) bool {
+	pk1, err1 := pk.GetKeyBuffer()
+	PanicError(err1)
+	pk2, err2 := other.GetKeyBuffer()
+	PanicError(err2)
+	return bytes.Equal(pk1[:], pk2[:])
+}
+
+func (sk PrivateKey) Marshal() ([]byte, error) {
+	return sk.GetKeyBuffer()
+}
+
+func (sk *PrivateKey) MarshalTo(data []byte) (n int, err error) {
+	skbuf, err := sk.GetKeyBuffer()
+	copy(data[:], skbuf)
+	return len(skbuf), err
+}
+
+func (sk *PrivateKey) Unmarshal(data []byte) error {
+	sm2keygenargs := [][2]string{
+		{"ec_paramgen_curve", "sm2p256v1"},
+		{"ec_param_enc", "named_curve"},
+	}
+	sm2sk, err := GeneratePrivateKeyByBuffer("EC", sm2keygenargs, nil, data[:])
+	PanicError(err)
+	sk.pkey = sm2sk.pkey
+	return err
+}
+
+func (sk *PrivateKey) Size() int {
+	skbuf, err := sk.GetKeyBuffer()
+	PanicError(err)
+	return len(skbuf)
+}
+
+func (sk PrivateKey) MarshalJSON() ([]byte, error) {
+	privKey, err := sk.GetKeyBuffer()
+	PanicError(err) 
+	blob, err := json.Marshal(privKey)
+	return blob[:], err
+}
+
+func (sk *PrivateKey) UnmarshalJSON(data []byte) error {
+	var buffer []byte
+	if err := json.Unmarshal(data, &buffer); err != nil {
+		return err
+	}
+
+	sm2keygenargs := [][2]string{
+		{"ec_paramgen_curve", "sm2p256v1"},
+		{"ec_param_enc", "named_curve"},
+	}
+	sm2sk, err := GeneratePrivateKeyByBuffer("EC", sm2keygenargs, nil, buffer[:])
+	PanicError(err)
+	sk.pkey = sm2sk.pkey
+	return err
+}
+
+// only required if the equal option is set
+func (sk PrivateKey) Equal(other PrivateKey) bool {
+	sk1, err1 := sk.GetKeyBuffer()
+	PanicError(err1)
+	sk2, err2 := other.GetKeyBuffer()
+	PanicError(err2)
+	return bytes.Equal(sk1[:], sk2[:])
 }
 
 func GeneratePublicKeyByBuffer(alg string, args [][2]string, eng *Engine, buffer []byte) (*PublicKey, error) {
