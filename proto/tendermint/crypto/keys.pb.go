@@ -30,6 +30,7 @@ type PublicKey struct {
 	//	*PublicKey_Ed25519
 	//	*PublicKey_Secp256K1
 	//	*PublicKey_Sm2
+	//  *PublicKey_GmSSL
 	Sum isPublicKey_Sum `protobuf_oneof:"sum"`
 }
 
@@ -84,9 +85,14 @@ type PublicKey_Sm2 struct {
 	Sm2 []byte `protobuf:"bytes,3,opt,name=sm2,proto3,oneof" json:"sm2,omitempty"`
 }
 
+type PublicKey_GmSSL struct {
+	GmSSL []byte `protobuf:"bytes,4,opt,name=gmssl,proto3,oneof" json:"gmssl,omitempty"`
+}
+
 func (*PublicKey_Ed25519) isPublicKey_Sum()   {}
 func (*PublicKey_Secp256K1) isPublicKey_Sum() {}
 func (*PublicKey_Sm2) isPublicKey_Sum()       {}
+func (*PublicKey_GmSSL) isPublicKey_Sum()     {}
 
 func (m *PublicKey) GetSum() isPublicKey_Sum {
 	if m != nil {
@@ -116,12 +122,20 @@ func (m *PublicKey) GetSm2() []byte {
 	return nil
 }
 
+func (m *PublicKey) GetGmSSL() []byte {
+	if x, ok := m.GetSum().(*PublicKey_GmSSL); ok {
+		return x.GmSSL
+	}
+	return nil
+}
+
 // XXX_OneofWrappers is for the internal use of the proto package.
 func (*PublicKey) XXX_OneofWrappers() []interface{} {
 	return []interface{}{
 		(*PublicKey_Ed25519)(nil),
 		(*PublicKey_Secp256K1)(nil),
 		(*PublicKey_Sm2)(nil),
+		(*PublicKey_GmSSL)(nil),
 	}
 }
 
@@ -189,6 +203,8 @@ func (this *PublicKey) Compare(that interface{}) int {
 			thisType = 1
 		case *PublicKey_Sm2:
 			thisType = 2
+		case *PublicKey_GmSSL:
+			thisType = 3
 		default:
 			panic(fmt.Sprintf("compare: unexpected type %T in oneof", this.Sum))
 		}
@@ -200,6 +216,8 @@ func (this *PublicKey) Compare(that interface{}) int {
 			that1Type = 1
 		case *PublicKey_Sm2:
 			that1Type = 2
+		case *PublicKey_GmSSL:
+			that1Type = 3
 		default:
 			panic(fmt.Sprintf("compare: unexpected type %T in oneof", that1.Sum))
 		}
@@ -305,6 +323,38 @@ func (this *PublicKey_Sm2) Compare(that interface{}) int {
 	}
 	return 0
 }
+
+func (this *PublicKey_GmSSL) Compare(that interface{}) int {
+	if that == nil {
+		if this == nil {
+			return 0
+		}
+		return 1
+	}
+
+	that1, ok := that.(*PublicKey_GmSSL)
+	if !ok {
+		that2, ok := that.(PublicKey_GmSSL)
+		if ok {
+			that1 = &that2
+		} else {
+			return 1
+		}
+	}
+	if that1 == nil {
+		if this == nil {
+			return 0
+		}
+		return 1
+	} else if this == nil {
+		return -1
+	}
+	if c := bytes.Compare(this.GmSSL, that1.GmSSL); c != 0 {
+		return c
+	}
+	return 0
+}
+
 func (this *PublicKey) Equal(that interface{}) bool {
 	if that == nil {
 		return this == nil
@@ -407,6 +457,30 @@ func (this *PublicKey_Sm2) Equal(that interface{}) bool {
 	}
 	return true
 }
+func (this *PublicKey_GmSSL) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*PublicKey_GmSSL)
+	if !ok {
+		that2, ok := that.(PublicKey_GmSSL)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !bytes.Equal(this.GmSSL, that1.GmSSL) {
+		return false
+	}
+	return true
+}
 func (m *PublicKey) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -471,11 +545,11 @@ func (m *PublicKey_Secp256K1) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	}
 	return len(dAtA) - i, nil
 }
+
 func (m *PublicKey_Sm2) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
-
 func (m *PublicKey_Sm2) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	if m.Sm2 != nil {
@@ -487,6 +561,24 @@ func (m *PublicKey_Sm2) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	}
 	return len(dAtA) - i, nil
 }
+
+func (m *PublicKey_GmSSL) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *PublicKey_GmSSL) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.GmSSL != nil {
+		i -= len(m.GmSSL)
+		copy(dAtA[i:], m.GmSSL)
+		i = encodeVarintKeys(dAtA, i, uint64(len(m.GmSSL)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	return len(dAtA) - i, nil
+}
+
 func encodeVarintKeys(dAtA []byte, offset int, v uint64) int {
 	offset -= sovKeys(v)
 	base := offset
@@ -542,6 +634,18 @@ func (m *PublicKey_Sm2) Size() (n int) {
 	_ = l
 	if m.Sm2 != nil {
 		l = len(m.Sm2)
+		n += 1 + l + sovKeys(uint64(l))
+	}
+	return n
+}
+func (m *PublicKey_GmSSL) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.GmSSL != nil {
+		l = len(m.GmSSL)
 		n += 1 + l + sovKeys(uint64(l))
 	}
 	return n
@@ -680,6 +784,39 @@ func (m *PublicKey) Unmarshal(dAtA []byte) error {
 			v := make([]byte, postIndex-iNdEx)
 			copy(v, dAtA[iNdEx:postIndex])
 			m.Sum = &PublicKey_Sm2{v}
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field GmSSL", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowKeys
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthKeys
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthKeys
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := make([]byte, postIndex-iNdEx)
+			copy(v, dAtA[iNdEx:postIndex])
+			m.Sum = &PublicKey_GmSSL{v}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex

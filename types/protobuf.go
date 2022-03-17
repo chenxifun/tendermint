@@ -8,6 +8,7 @@ import (
 	cryptoenc "github.com/tendermint/tendermint/crypto/encoding"
 	"github.com/tendermint/tendermint/crypto/secp256k1"
 	"github.com/tendermint/tendermint/crypto/sm2"
+	gmssl "github.com/tendermint/tendermint/crypto/gmssl"
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
 )
 
@@ -18,6 +19,7 @@ const (
 	ABCIPubKeyTypeEd25519   = ed25519.KeyType
 	ABCIPubKeyTypeSecp256k1 = secp256k1.KeyType
 	ABCIPubKeyTypeSm2       = sm2.KeyType
+	ABCIPubKeyTypeGmSSL     = gmssl.KeyType
 )
 
 // TODO: Make non-global by allowing for registration of more pubkey types
@@ -26,6 +28,7 @@ var ABCIPubKeyTypesToNames = map[string]string{
 	ABCIPubKeyTypeEd25519:   ed25519.PubKeyName,
 	ABCIPubKeyTypeSecp256k1: secp256k1.PubKeyName,
 	ABCIPubKeyTypeSm2:       sm2.PubKeyName,
+	ABCIPubKeyTypeGmSSL:     gmssl.PubKeyName,
 }
 
 //-------------------------------------------------------
@@ -36,6 +39,8 @@ func GetABCIPubKeyType() string {
 		return ABCIPubKeyTypeEd25519
 	case algo.SM2:
 		return ABCIPubKeyTypeSm2
+	case algo.GMSSL:
+		return ABCIPubKeyTypeGmSSL
 	default:
 		return ABCIPubKeyTypeEd25519
 	}
