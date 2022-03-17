@@ -14,6 +14,5 @@ message PublicKey {
     bytes ed25519   = 1;
     bytes secp256k1 = 2;
     bytes sm2       = 3;
-    bytes gmssl     = 4;
   }
 }

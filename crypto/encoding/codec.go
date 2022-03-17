@@ -7,7 +7,6 @@ import (
 	"github.com/tendermint/tendermint/crypto/ed25519"
 	"github.com/tendermint/tendermint/crypto/secp256k1"
 	"github.com/tendermint/tendermint/crypto/sm2"
-	gmssl "github.com/tendermint/tendermint/crypto/gmssl"
 	"github.com/tendermint/tendermint/libs/json"
 	pc "github.com/tendermint/tendermint/proto/tendermint/crypto"
 )
@@ -22,12 +21,6 @@ func init() {
 func PubKeyToProto(k crypto.PubKey) (pc.PublicKey, error) {
 	var kp pc.PublicKey
 	switch k := k.(type) {
-	case *gmssl.PubKeySm2:
-		kp = pc.PublicKey{
-			Sum: &pc.PublicKey_GmSSL{
-				GmSSL: k.Bytes(),
-			},
-		}
 	case sm2.PubKeySm2:
 		kp = pc.PublicKey{
 			Sum: &pc.PublicKey_Sm2{
@@ -62,13 +55,6 @@ func PubKeyFromProto(k pc.PublicKey) (crypto.PubKey, error) {
 		}
 		pk := sm2.PubKeySm2{}
 		copy(pk[:], k.Sm2)
-		return pk, nil
-	case *pc.PublicKey_GmSSL:
-		if len(k.GmSSL) != gmssl.PubKeySize {
-			return nil, fmt.Errorf("invalid size for PubKeyGmSSL. Got %d, expected %d",
-				len(k.GmSSL), gmssl.PubKeySize)
-		}
-		pk := gmssl.GenPubKeyByBuf(k.GmSSL)
 		return pk, nil
 	case *pc.PublicKey_Ed25519:
 		if len(k.Ed25519) != ed25519.PubKeySize {

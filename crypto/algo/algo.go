@@ -4,13 +4,11 @@ import (
 	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/crypto/ed25519"
 	"github.com/tendermint/tendermint/crypto/sm2"
-	"github.com/tendermint/tendermint/crypto/gmssl"
 )
 
 const (
 	ED25519 = "ed25519"
 	SM2     = "sm2"
-	GMSSL   = "gmssl"
 )
 
 var Algo = "ed25519"
@@ -20,9 +18,6 @@ func GetPubKeyType() string {
 	case ED25519:
 		return ed25519.KeyType
 
-	case GMSSL: 
-		return gmssl.KeyType
-	
 	case SM2:
 		return sm2.KeyType
 
@@ -41,10 +36,6 @@ func GetPrivKeyBytes(privKey crypto.PrivKey) []byte {
 		key := privKey.(sm2.PrivKeySm2)
 		return key[:]
 
-	case GMSSL:
-		key := privKey.(*gmssl.PrivKeySm2)
-		return key.Bytes()
-
 	default:
 		key := privKey.(ed25519.PrivKey)
 		return key[:]
@@ -61,10 +52,6 @@ func GetPubKeyBytes(pubKey crypto.PubKey) []byte {
 		key := pubKey.(sm2.PubKeySm2)
 		return key[:]
 
-	case GMSSL:
-		key := pubKey.(*gmssl.PubKeySm2)
-		return key.Bytes()
-
 	default:
 		key := pubKey.(ed25519.PubKey)
 		return key[:]
@@ -76,10 +63,6 @@ func GetPubKeyFromData(keyType string, keyData []byte) crypto.PubKey {
 	case ED25519:
 		pubkey := ed25519.PubKey{}
 		copy(pubkey[:], keyData)
-		return pubkey
-
-	case GMSSL:
-		pubkey := gmssl.GenPubKeyByBuf(keyData)
 		return pubkey
 
 	case SM2:
@@ -99,9 +82,6 @@ func GenPrivKey() crypto.PrivKey {
 	case ED25519:
 		return ed25519.GenPrivKey()
 
-	case GMSSL:
-		return gmssl.GenPrivKey()
-
 	case SM2:
 		return sm2.GenPrivKey()
 
@@ -118,9 +98,6 @@ func GenPrivKeyFromSecret(secret []byte) crypto.PrivKey {
 	case SM2:
 		return sm2.GenPrivKeySm2FromSecret(secret)
 
-	case GMSSL:
-		return gmssl.GenPrivKeyFromSecret(secret)
-
 	default:
 		return ed25519.GenPrivKeyFromSecret(secret)
 	}
@@ -133,9 +110,6 @@ func GetPrivKeySize() int {
 
 	case SM2:
 		return sm2.PrivKeySize
-
-	case GMSSL:
-		return gmssl.PrivKeySize
 
 	default:
 		return 64
@@ -150,9 +124,6 @@ func GetPubKeySize() int {
 	case SM2:
 		return sm2.PubKeySize
 
-	case GMSSL:
-		return gmssl.PubKeySize
-
 	default:
 		return ed25519.PubKeySize
 	}
@@ -165,9 +136,6 @@ func GetSignatureSize() int {
 
 	case SM2:
 		return sm2.SignatureSize
-
-	case GMSSL:
-		return gmssl.SignatureSize
 
 	default:
 		return ed25519.SignatureSize
@@ -183,11 +151,6 @@ func VerifyPubKeyType(pubKey crypto.PubKey) bool {
 
 	case SM2:
 		if _, ok := pubKey.(sm2.PubKeySm2); ok {
-			return true
-		}
-
-	case GMSSL:
-		if _, ok := pubKey.(*gmssl.PubKeySm2); ok {
 			return true
 		}
 	}
@@ -206,12 +169,7 @@ func VerifyPrivKeyType(privKey crypto.PrivKey) bool {
 		if _, ok := privKey.(sm2.PrivKeySm2); ok {
 			return true
 		}
-	
-
-	case GMSSL:
-		if _, ok := privKey.(*gmssl.PrivKeySm2); ok {
-			return true
-		}
 	}
+
 	return false
 }
