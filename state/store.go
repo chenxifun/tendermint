@@ -54,6 +54,8 @@ type Store interface {
 	LoadFromDBOrGenesisDoc(*types.GenesisDoc) (State, error)
 	// Load loads the current state of the blockchain
 	Load() (State, error)
+	// Load loads the previous state of the blockchain
+	LoadPrevious() (State, error)
 	// LoadValidators loads the validator set at a given height
 	LoadValidators(int64) (*types.ValidatorSet, error)
 	// LoadABCIResponses loads the abciResponse for a given height
@@ -62,6 +64,8 @@ type Store interface {
 	LoadConsensusParams(int64) (tmproto.ConsensusParams, error)
 	// Save overwrites the previous state with the updated one
 	Save(State) error
+	// Save the previous state
+	SavePrevious(State) error
 	// SaveABCIResponses saves ABCIResponses for a given height
 	SaveABCIResponses(int64, *tmstate.ABCIResponses) error
 	// Bootstrap is used for bootstrapping state when not starting from a initial height.
@@ -124,6 +128,10 @@ func (store dbStore) Load() (State, error) {
 	return store.loadState(stateKey)
 }
 
+func (store dbStore) LoadPrevious() (State, error) {
+	return store.loadState(statePreKey)
+}
+
 func (store dbStore) loadState(key []byte) (state State, err error) {
 	buf, err := store.db.Get(key)
 	if err != nil {
@@ -154,6 +162,10 @@ func (store dbStore) loadState(key []byte) (state State, err error) {
 // This flushes the writes (e.g. calls SetSync).
 func (store dbStore) Save(state State) error {
 	return store.save(state, stateKey)
+}
+
+func (store dbStore) SavePrevious(state State) error {
+	return store.save(state, statePreKey)
 }
 
 func (store dbStore) save(state State, key []byte) error {
