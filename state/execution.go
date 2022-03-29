@@ -147,6 +147,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	}
 
 	fail.Fail() // XXX
+	preState := state.Copy()
 
 	// Save the results before we commit.
 	if err := blockExec.store.SaveABCIResponses(block.Height, abciResponses); err != nil {
@@ -186,6 +187,9 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	blockExec.evpool.Update(state, block.Evidence.Evidence)
 
 	fail.Fail() // XXX
+
+	// Save the the previous state.
+	_ = blockExec.store.SavePrevious(preState)
 
 	// Update the app hash and save the state.
 	state.AppHash = appHash

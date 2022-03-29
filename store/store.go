@@ -393,6 +393,24 @@ func (bs *BlockStore) SaveBlock(block *types.Block, blockParts *types.PartSet, s
 	bs.saveState()
 }
 
+func (bs *BlockStore) RetreatLastBlock() {
+	height := bs.height
+	_ = bs.db.Delete(calcBlockMetaKey(height))
+	_ = bs.db.Delete(calcBlockCommitKey(height - 1))
+	_ = bs.db.Delete(calcSeenCommitKey(height))
+	bss := tmstore.BlockStoreState{
+		Base:   bs.base,
+		Height: height - 1,
+	}
+	SaveBlockStoreState(&bss, bs.db)
+	// Done!
+	bs.mtx.Lock()
+	bs.height = height
+	bs.mtx.Unlock()
+	// Flush
+	_ = bs.db.SetSync(nil, nil)
+}
+
 func (bs *BlockStore) saveBlockPart(height int64, index int, part *types.Part) {
 	pbp, err := part.ToProto()
 	if err != nil {
