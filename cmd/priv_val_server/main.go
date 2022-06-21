@@ -18,6 +18,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
+	"github.com/tendermint/tendermint/crypto/algo"
 	"github.com/tendermint/tendermint/libs/log"
 	tmnet "github.com/tendermint/tendermint/libs/net"
 	tmos "github.com/tendermint/tendermint/libs/os"
@@ -113,6 +114,14 @@ func main() {
 	lis, err := net.Listen(protocol, address)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "SignerServer: Failed to listen %v", err)
+	switch protocol {
+	case "unix":
+		dialer = privval.DialUnixFn(address)
+	case "tcp":
+		connTimeout := 3 * time.Second // TODO
+		dialer = privval.DialTCPFn(address, connTimeout, algo.GenPrivKey())
+	default:
+		logger.Error("Unknown protocol", "protocol", protocol)
 		os.Exit(1)
 	}
 

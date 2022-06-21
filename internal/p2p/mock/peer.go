@@ -3,6 +3,7 @@ package mock
 import (
 	"net"
 
+	"github.com/tendermint/tendermint/crypto/algo"
 	"github.com/tendermint/tendermint/internal/p2p"
 	"github.com/tendermint/tendermint/internal/p2p/conn"
 	"github.com/tendermint/tendermint/libs/service"
@@ -27,8 +28,8 @@ func NewPeer(ip net.IP) *Peer {
 	} else {
 		netAddr = types.NewNetAddressIPPort(ip, 26656)
 	}
-	nodeKey := types.GenNodeKey()
-	netAddr.ID = nodeKey.ID
+	nodeKey := p2p.NodeKey{PrivKey: algo.GenPrivKey()}
+	netAddr.ID = nodeKey.ID()
 	mp := &Peer{
 		ip:   ip,
 		id:   nodeKey.ID,

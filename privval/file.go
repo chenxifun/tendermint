@@ -11,8 +11,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	"github.com/tendermint/tendermint/crypto"
-	"github.com/tendermint/tendermint/crypto/ed25519"
-	"github.com/tendermint/tendermint/crypto/secp256k1"
+	"github.com/tendermint/tendermint/crypto/algo"
 	"github.com/tendermint/tendermint/internal/libs/protoio"
 	"github.com/tendermint/tendermint/internal/libs/tempfile"
 	tmbytes "github.com/tendermint/tendermint/libs/bytes"
@@ -174,15 +173,8 @@ func NewFilePV(privKey crypto.PrivKey, keyFilePath, stateFilePath string) *FileP
 
 // GenFilePV generates a new validator with randomly generated private key
 // and sets the filePaths, but does not call Save().
-func GenFilePV(keyFilePath, stateFilePath, keyType string) (*FilePV, error) {
-	switch keyType {
-	case types.ABCIPubKeyTypeSecp256k1:
-		return NewFilePV(secp256k1.GenPrivKey(), keyFilePath, stateFilePath), nil
-	case "", types.ABCIPubKeyTypeEd25519:
-		return NewFilePV(ed25519.GenPrivKey(), keyFilePath, stateFilePath), nil
-	default:
-		return nil, fmt.Errorf("key type: %s is not supported", keyType)
-	}
+func GenFilePV(keyFilePath, stateFilePath string) *FilePV {
+	return NewFilePV(algo.GenPrivKey(), keyFilePath, stateFilePath)
 }
 
 // LoadFilePV loads a FilePV from the filePaths.  The FilePV handles double
@@ -246,7 +238,7 @@ func LoadOrGenFilePV(keyFilePath, stateFilePath string) (*FilePV, error) {
 	if tmos.FileExists(keyFilePath) {
 		pv, err = LoadFilePV(keyFilePath, stateFilePath)
 	} else {
-		pv, err = GenFilePV(keyFilePath, stateFilePath, "")
+		pv = GenFilePV(keyFilePath, stateFilePath)
 		pv.Save()
 	}
 	return pv, err
