@@ -7,6 +7,7 @@ import (
 
 	"github.com/tendermint/tendermint/crypto/ed25519"
 	"github.com/tendermint/tendermint/crypto/secp256k1"
+	"github.com/tendermint/tendermint/crypto/sm2"
 	"github.com/tendermint/tendermint/crypto/sr25519"
 	"github.com/tendermint/tendermint/crypto/tmhash"
 	tmstrings "github.com/tendermint/tendermint/libs/strings"
@@ -26,12 +27,14 @@ const (
 	ABCIPubKeyTypeEd25519   = ed25519.KeyType
 	ABCIPubKeyTypeSecp256k1 = secp256k1.KeyType
 	ABCIPubKeyTypeSr25519   = sr25519.KeyType
+	ABCIPubKeyTypeSm2       = sm2.KeyType
 )
 
 var ABCIPubKeyTypesToNames = map[string]string{
 	ABCIPubKeyTypeEd25519:   ed25519.PubKeyName,
 	ABCIPubKeyTypeSecp256k1: secp256k1.PubKeyName,
 	ABCIPubKeyTypeSr25519:   sr25519.PubKeyName,
+	ABCIPubKeyTypeSm2:       sm2.PubKeyName,
 }
 
 // ConsensusParams contains consensus critical parameters that determine the

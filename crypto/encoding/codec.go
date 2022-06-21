@@ -23,8 +23,8 @@ func PubKeyToProto(k crypto.PubKey) (cryptoproto.PublicKey, error) {
 	var kp cryptoproto.PublicKey
 	switch k := k.(type) {
 	case sm2.PubKeySm2:
-		kp = pc.PublicKey{
-			Sum: &pc.PublicKey_Sm2{
+		kp = cryptoproto.PublicKey{
+			Sum: &cryptoproto.PublicKey_Sm2{
 				Sm2: k[:],
 			},
 		}
@@ -55,8 +55,7 @@ func PubKeyToProto(k crypto.PubKey) (cryptoproto.PublicKey, error) {
 // PubKeyFromProto takes a protobuf Pubkey and transforms it to a crypto.Pubkey
 func PubKeyFromProto(k cryptoproto.PublicKey) (crypto.PubKey, error) {
 	switch k := k.Sum.(type) {
-	case *cryptoproto.PublicKey_Ed25519:
-	case *pc.PublicKey_Sm2:
+	case *cryptoproto.PublicKey_Sm2:
 		if len(k.Sm2) != sm2.PubKeySize {
 			return nil, fmt.Errorf("invalid size for PubKeySm2. Got %d, expected %d",
 				len(k.Sm2), sm2.PubKeySize)
@@ -64,7 +63,7 @@ func PubKeyFromProto(k cryptoproto.PublicKey) (crypto.PubKey, error) {
 		pk := sm2.PubKeySm2{}
 		copy(pk[:], k.Sm2)
 		return pk, nil
-	case *pc.PublicKey_Ed25519:
+	case *cryptoproto.PublicKey_Ed25519:
 		if len(k.Ed25519) != ed25519.PubKeySize {
 			return nil, fmt.Errorf("invalid size for PubKeyEd25519. Got %d, expected %d",
 				len(k.Ed25519), ed25519.PubKeySize)

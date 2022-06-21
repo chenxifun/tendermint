@@ -28,8 +28,8 @@ func NewPeer(ip net.IP) *Peer {
 	} else {
 		netAddr = types.NewNetAddressIPPort(ip, 26656)
 	}
-	nodeKey := p2p.NodeKey{PrivKey: algo.GenPrivKey()}
-	netAddr.ID = nodeKey.ID()
+	nodeKey := types.NodeKey{PrivKey: algo.GenPrivKey()}
+	netAddr.ID = nodeKey.ID
 	mp := &Peer{
 		ip:   ip,
 		id:   nodeKey.ID,
