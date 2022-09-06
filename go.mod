@@ -36,6 +36,7 @@ require (
 	github.com/spf13/viper v1.12.0
 	github.com/stretchr/testify v1.8.0
 	github.com/tendermint/tm-db v0.6.6
+	github.com/tjfoc/gmsm v1.4.0
 	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
 	golang.org/x/net v0.0.0-20220726230323-06994584191e
 	google.golang.org/grpc v1.48.0
