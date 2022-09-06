@@ -37,7 +37,7 @@ type PrivKeySm2 [PrivKeySize]byte
 
 // Bytes returns the privkey byte format.
 func (privKey PrivKeySm2) Bytes() []byte {
-	return []byte(privKey[:])
+	return privKey[:]
 }
 
 type PubKeySm2 [PubKeySize]byte
@@ -164,7 +164,7 @@ func (pubKey PubKeySm2) Address() crypto.Address {
 }
 
 func (pubKey PubKeySm2) Bytes() []byte {
-	return []byte(pubKey[:])
+	return pubKey[:]
 }
 
 func (pubKey PubKeySm2) VerifySignature(msg []byte, sig []byte) bool {
@@ -198,7 +198,7 @@ func (pubKey PubKeySm2) String() string {
 func (pubKey PubKeySm2) Equals(other crypto.PubKey) bool {
 	if otherSm2, ok := other.(PubKeySm2); ok {
 		return bytes.Equal(pubKey[:], otherSm2[:])
-	} else {
-		return false
 	}
+
+	return false
 }
