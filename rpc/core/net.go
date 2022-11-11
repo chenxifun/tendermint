@@ -51,7 +51,7 @@ func UnsafeDialSeeds(ctx *rpctypes.Context, seeds []string) (*ctypes.ResultDialS
 }
 
 // UnsafeClosePeers Unsafe Close Peers
-func UnsafeClosePeers(ctx *rpctypes.Context, peers []string) (*ctypes.ResultDialPeers, error) {
+func UnsafeClosePeers(ctx *rpctypes.Context, peers []string) (*ctypes.ResultClosePeers, error) {
 	peersSet := env.P2PPeers.Peers()
 	for _, peer := range peers {
 		peerObj := peersSet.Get(p2p.ID(peer))
@@ -61,7 +61,7 @@ func UnsafeClosePeers(ctx *rpctypes.Context, peers []string) (*ctypes.ResultDial
 		env.P2PPeers.StopPeerGracefully(peerObj)
 	}
 
-	return &ctypes.ResultDialPeers{Log: "Close peers in progress. See /net_info for details"}, nil
+	return &ctypes.ResultClosePeers{Log: "Close peers in progress. See /net_info for details"}, nil
 }
 
 // UnsafeDialPeers dials the given peers (comma-separated id@IP:PORT),

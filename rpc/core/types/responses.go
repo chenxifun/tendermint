@@ -124,6 +124,11 @@ type ResultDialPeers struct {
 	Log string `json:"log"`
 }
 
+// Log from close peers
+type ResultClosePeers struct {
+	Log string `json:"log"`
+}
+
 // A peer
 type Peer struct {
 	NodeInfo         p2p.DefaultNodeInfo  `json:"node_info"`

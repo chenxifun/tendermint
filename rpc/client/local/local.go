@@ -145,7 +145,7 @@ func (c *Local) DialPeers(
 	return core.UnsafeDialPeers(c.ctx, peers, persistent, unconditional, private)
 }
 
-func (c *Local) UnsafeClosePeers(ctx context.Context, peers []string) (*ctypes.ResultDialPeers, error) {
+func (c *Local) UnsafeClosePeers(ctx context.Context, peers []string) (*ctypes.ResultClosePeers, error) {
 	return core.UnsafeClosePeers(c.ctx, peers)
 }
 

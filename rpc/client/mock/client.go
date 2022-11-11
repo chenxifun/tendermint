@@ -150,7 +150,7 @@ func (c Client) DialPeers(
 	return core.UnsafeDialPeers(&rpctypes.Context{}, peers, persistent, unconditional, private)
 }
 
-func (c *Client) UnsafeClosePeers(ctx context.Context, peers []string) (*ctypes.ResultDialPeers, error) {
+func (c *Client) UnsafeClosePeers(ctx context.Context, peers []string) (*ctypes.ResultClosePeers, error) {
 	return core.UnsafeClosePeers(&rpctypes.Context{}, peers)
 }
 
