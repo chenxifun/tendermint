@@ -67,6 +67,8 @@ type peers interface {
 	AddPrivatePeerIDs([]string) error
 	DialPeersAsync([]string) error
 	Peers() p2p.IPeerSet
+
+	StopPeerGracefully(peer p2p.Peer)
 }
 
 //----------------------------------------------

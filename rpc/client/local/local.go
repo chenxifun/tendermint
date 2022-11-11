@@ -145,6 +145,10 @@ func (c *Local) DialPeers(
 	return core.UnsafeDialPeers(c.ctx, peers, persistent, unconditional, private)
 }
 
+func (c *Local) UnsafeClosePeers(ctx context.Context, peers []string) (*ctypes.ResultDialPeers, error) {
+	return core.UnsafeClosePeers(c.ctx, peers)
+}
+
 func (c *Local) BlockchainInfo(ctx context.Context, minHeight, maxHeight int64) (*ctypes.ResultBlockchainInfo, error) {
 	return core.BlockchainInfo(c.ctx, minHeight, maxHeight)
 }

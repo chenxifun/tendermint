@@ -50,6 +50,20 @@ func UnsafeDialSeeds(ctx *rpctypes.Context, seeds []string) (*ctypes.ResultDialS
 	return &ctypes.ResultDialSeeds{Log: "Dialing seeds in progress. See /net_info for details"}, nil
 }
 
+// UnsafeClosePeers Unsafe Close Peers
+func UnsafeClosePeers(ctx *rpctypes.Context, peers []string) (*ctypes.ResultDialPeers, error) {
+	peersSet := env.P2PPeers.Peers()
+	for _, peer := range peers {
+		peerObj := peersSet.Get(p2p.ID(peer))
+		if peerObj == nil || peerObj.ID() == "" {
+			continue
+		}
+		env.P2PPeers.StopPeerGracefully(peerObj)
+	}
+
+	return &ctypes.ResultDialPeers{Log: "Close peers in progress. See /net_info for details"}, nil
+}
+
 // UnsafeDialPeers dials the given peers (comma-separated id@IP:PORT),
 // optionally making them persistent.
 func UnsafeDialPeers(ctx *rpctypes.Context, peers []string, persistent, unconditional, private bool) (

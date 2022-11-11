@@ -54,4 +54,6 @@ func AddUnsafeRoutes() {
 	Routes["dial_seeds"] = rpc.NewRPCFunc(UnsafeDialSeeds, "seeds")
 	Routes["dial_peers"] = rpc.NewRPCFunc(UnsafeDialPeers, "peers,persistent,unconditional,private")
 	Routes["unsafe_flush_mempool"] = rpc.NewRPCFunc(UnsafeFlushMempool, "")
+
+	Routes["close_peers"] = rpc.NewRPCFunc(UnsafeClosePeers, "peers")
 }
