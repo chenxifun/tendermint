@@ -54,7 +54,7 @@ func UnsafeDialSeeds(ctx *rpctypes.Context, seeds []string) (*ctypes.ResultDialS
 func UnsafeClosePeers(ctx *rpctypes.Context, peers []string) (*ctypes.ResultClosePeers, error) {
 	peersSet := env.P2PPeers.Peers()
 	for _, peer := range peers {
-		peerObj := peersSet.Get(p2p.ID(peer))
+		peerObj := peersSet.Get(p2p.ID(strings.ToLower(peer)))
 		if peerObj == nil || peerObj.ID() == "" {
 			continue
 		}
