@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <openssl/bn.h>
 #include <openssl/ec.h>
-#include <openssl/sm2.h>
+#include <gmssl/sm2.h>
 #include <openssl/bio.h>
 #include <openssl/evp.h>
 #include <openssl/pem.h>
@@ -42,7 +42,7 @@ int EVP_PKEY_pub2buf(const EVP_PKEY *pkey, unsigned char **pub)
 	*pub = NULL;
 	// int publen = EC_KEY_key2buf(x, EC_KEY_get_conv_form(x), pub, NULL);
     int publen = EC_KEY_key2buf(x, POINT_CONVERSION_COMPRESSED, pub, NULL);
-    
+
     // char *y = my_buf2hexstr(*pub, publen);
     // printf("%s\n", y);
     // OPENSSL_free(y);
@@ -101,11 +101,11 @@ int EC_KEY_set_private_key_by_hexstr(EC_KEY *ec_key, const char *hexstr, int IsS
 
         if(BN_num_bytes(priv) != 32)
         {
-            
-            if(!BN_lshift(temp, priv, (32 - BN_num_bytes(priv)) * 8)) 
+
+            if(!BN_lshift(temp, priv, (32 - BN_num_bytes(priv)) * 8))
                 return 0;
-            BN_copy(priv, temp);  
-        }  
+            BN_copy(priv, temp);
+        }
         BN_free(order);
         BN_free(one);
         BN_free(order_minus_one);
@@ -119,7 +119,7 @@ int EC_KEY_set_private_key_by_hexstr(EC_KEY *ec_key, const char *hexstr, int IsS
     // Update corresponding public key
     const EC_GROUP * group = EC_KEY_get0_group(ec_key);
     EC_POINT * pub = EC_POINT_new(group);
-    
+
     BN_CTX * ctx = BN_CTX_new();
     if(!EC_POINT_mul(
         group,

@@ -15,7 +15,7 @@ package gmssl
 #include <string.h>
 #include <stdlib.h>
 #include <openssl/ec.h>
-#include <openssl/sm2.h>
+#include <gmssl/sm2.h>
 #include <openssl/bio.h>
 #include <openssl/evp.h>
 #include <openssl/pem.h>
@@ -656,7 +656,7 @@ func (pk *PublicKey) Unmarshal(data []byte) error {
 	}
 	sm2pk, err := GeneratePublicKeyByBuffer("EC", sm2keygenargs, nil, data[:])
 	PanicError(err)
-	pk.pkey= sm2pk.pkey
+	pk.pkey = sm2pk.pkey
 	return err
 }
 
@@ -685,7 +685,7 @@ func (pk *PublicKey) UnmarshalJSON(data []byte) error {
 	}
 	sm2pk, err := GeneratePublicKeyByBuffer("EC", sm2keygenargs, nil, buffer[:])
 	PanicError(err)
-	pk.pkey= sm2pk.pkey
+	pk.pkey = sm2pk.pkey
 	return err
 }
 
@@ -727,7 +727,7 @@ func (sk *PrivateKey) Size() int {
 
 func (sk PrivateKey) MarshalJSON() ([]byte, error) {
 	privKey, err := sk.GetKeyBuffer()
-	PanicError(err) 
+	PanicError(err)
 	blob, err := json.Marshal(privKey)
 	return blob[:], err
 }
@@ -797,6 +797,7 @@ func GeneratePrivateKeyByBuffer(alg string, args [][2]string, eng *Engine, buffe
 
 	return sk, err
 }
+
 // 生成私钥，并返回私钥对象
 func GeneratePrivateKey(alg string, args [][2]string, eng *Engine) (*PrivateKey, error) {
 	calg := C.CString(alg)
@@ -1051,7 +1052,7 @@ func (pk *PublicKey) GetKeyBuffer() ([]byte, error) {
 		return []byte{}, GetErrors()
 	}
 	// p2 := (*C.char) (unsafe.Pointer(p))
-	
+
 	// defer C.free(unsafe.Pointer(p2))
 
 	// fmt.Println(C.GoBytes(unsafe.Pointer(p2), l))
