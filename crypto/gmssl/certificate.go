@@ -15,7 +15,7 @@ package gmssl
 #include <string.h>
 #include <stdlib.h>
 #include <openssl/ec.h>
-#include <openssl/sm2.h>
+#include <gmssl/sm2.h>
 #include <openssl/bio.h>
 #include <openssl/evp.h>
 #include <openssl/pem.h>
@@ -26,7 +26,7 @@ package gmssl
 extern long _BIO_get_mem_data(BIO *b, char **pp);
 extern void _OPENSSL_free(void *addr);
 int X509_CheckSignature(X509 * root, X509 * cert);
-int X509_CheckSignature(X509 * root, X509 * cert) 
+int X509_CheckSignature(X509 * root, X509 * cert)
 {
 	EVP_PKEY * PubKey = X509_get_pubkey(root);
 	int ret = X509_verify(cert, PubKey);
@@ -46,7 +46,6 @@ import (
 type Certificate struct {
 	x509 *C.X509
 }
-
 
 func (cert *Certificate) CheckSignatureFrom(root *Certificate) error {
 	ret := C.X509_CheckSignature(root.x509, cert.x509)
