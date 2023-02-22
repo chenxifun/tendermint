@@ -255,6 +255,10 @@ func (cli *socketClient) InitChainAsync(req types.RequestInitChain) *ReqRes {
 	return cli.queueRequest(types.ToRequestInitChain(req))
 }
 
+func (cli *socketClient) ProcessProposalAsync(req types.RequestProcessProposal) *ReqRes {
+	return cli.queueRequest(types.ToRequestProcessProposal(req))
+}
+
 func (cli *socketClient) BeginBlockAsync(req types.RequestBeginBlock) *ReqRes {
 	return cli.queueRequest(types.ToRequestBeginBlock(req))
 }
@@ -360,6 +364,15 @@ func (cli *socketClient) InitChainSync(req types.RequestInitChain) (*types.Respo
 	}
 
 	return reqres.Response.GetInitChain(), cli.Error()
+}
+
+func (cli *socketClient) ProcessProposalSync(req types.RequestProcessProposal) (*types.ResponseProcessProposal, error) {
+	reqres := cli.queueRequest(types.ToRequestProcessProposal(req))
+	if err := cli.FlushSync(); err != nil {
+		return nil, err
+	}
+
+	return reqres.Response.GetProcessProposal(), cli.Error()
 }
 
 func (cli *socketClient) BeginBlockSync(req types.RequestBeginBlock) (*types.ResponseBeginBlock, error) {

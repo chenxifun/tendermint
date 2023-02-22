@@ -18,7 +18,8 @@ type Application interface {
 	CheckTx(RequestCheckTx) ResponseCheckTx // Validate a tx for the mempool
 
 	// Consensus Connection
-	InitChain(RequestInitChain) ResponseInitChain    // Initialize blockchain w validators/other info from TendermintCore
+	InitChain(RequestInitChain) ResponseInitChain // Initialize blockchain w validators/other info from TendermintCore
+	ProcessProposal(RequestProcessProposal) ResponseProcessProposal
 	BeginBlock(RequestBeginBlock) ResponseBeginBlock // Signals the beginning of a block
 	DeliverTx(RequestDeliverTx) ResponseDeliverTx    // Deliver a tx for full processing
 	EndBlock(RequestEndBlock) ResponseEndBlock       // Signals the end of a block, returns changes to the validator set
@@ -69,6 +70,10 @@ func (BaseApplication) Query(req RequestQuery) ResponseQuery {
 
 func (BaseApplication) InitChain(req RequestInitChain) ResponseInitChain {
 	return ResponseInitChain{}
+}
+
+func (BaseApplication) ProcessProposal(req RequestProcessProposal) ResponseProcessProposal {
+	return ResponseProcessProposal{}
 }
 
 func (BaseApplication) BeginBlock(req RequestBeginBlock) ResponseBeginBlock {
@@ -146,6 +151,11 @@ func (app *GRPCApplication) Commit(ctx context.Context, req *RequestCommit) (*Re
 
 func (app *GRPCApplication) InitChain(ctx context.Context, req *RequestInitChain) (*ResponseInitChain, error) {
 	res := app.app.InitChain(*req)
+	return &res, nil
+}
+
+func (app *GRPCApplication) ProcessProposal(ctx context.Context, req *RequestProcessProposal) (*ResponseProcessProposal, error) {
+	res := app.app.ProcessProposal(*req)
 	return &res, nil
 }
 

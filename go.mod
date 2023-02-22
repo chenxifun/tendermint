@@ -42,4 +42,5 @@ require (
 	golang.org/x/net v0.0.0-20210903162142-ad29c8ab022f
 	golang.org/x/sys v0.0.0-20210903071746-97244b99971b // indirect
 	google.golang.org/grpc v1.37.0
+	google.golang.org/protobuf v1.26.0
 )

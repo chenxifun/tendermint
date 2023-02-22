@@ -36,6 +36,7 @@ message Request {
     RequestOfferSnapshot      offer_snapshot       = 13;
     RequestLoadSnapshotChunk  load_snapshot_chunk  = 14;
     RequestApplySnapshotChunk apply_snapshot_chunk = 15;
+    RequestProcessProposal    process_proposal     = 16;
   }
 }
 
@@ -125,6 +126,19 @@ message RequestApplySnapshotChunk {
   string sender = 3;
 }
 
+message RequestProcessProposal {
+  repeated bytes       txs                  = 1;
+  CommitInfo           proposed_last_commit = 2 [(gogoproto.nullable) = false];
+  repeated Evidence misbehavior             = 3 [(gogoproto.nullable) = false];
+  // hash is the merkle root hash of the fields of the proposed block.
+  bytes                     hash                 = 4;
+  int64                     height               = 5;
+  google.protobuf.Timestamp time                 = 6 [(gogoproto.nullable) = false, (gogoproto.stdtime) = true];
+  bytes                     next_validators_hash = 7;
+  // address of the public key of the original proposer of the block.
+  bytes proposer_address = 8;
+}
+
 //----------------------------------------
 // Response types
 
@@ -146,6 +160,7 @@ message Response {
     ResponseOfferSnapshot      offer_snapshot       = 14;
     ResponseLoadSnapshotChunk  load_snapshot_chunk  = 15;
     ResponseApplySnapshotChunk apply_snapshot_chunk = 16;
+    ResponseProcessProposal    process_proposal     = 17;
   }
 }
 
@@ -276,8 +291,23 @@ message ResponseApplySnapshotChunk {
   }
 }
 
+message ResponseProcessProposal {
+  ProposalStatus status = 1;
+
+  enum ProposalStatus {
+    UNKNOWN = 0;
+    ACCEPT  = 1;
+    REJECT  = 2;
+  }
+}
+
 //----------------------------------------
 // Misc.
+
+message CommitInfo {
+  int32             round = 1;
+  repeated VoteInfo votes = 2 [(gogoproto.nullable) = false];
+}
 
 // ConsensusParams contains all consensus-relevant parameters
 // that can be adjusted by the abci app
@@ -402,6 +432,9 @@ service ABCIApplication {
   rpc EndBlock(RequestEndBlock) returns (ResponseEndBlock);
   rpc ListSnapshots(RequestListSnapshots) returns (ResponseListSnapshots);
   rpc OfferSnapshot(RequestOfferSnapshot) returns (ResponseOfferSnapshot);
-  rpc LoadSnapshotChunk(RequestLoadSnapshotChunk) returns (ResponseLoadSnapshotChunk);
-  rpc ApplySnapshotChunk(RequestApplySnapshotChunk) returns (ResponseApplySnapshotChunk);
+  rpc LoadSnapshotChunk(RequestLoadSnapshotChunk)
+      returns (ResponseLoadSnapshotChunk);
+  rpc ApplySnapshotChunk(RequestApplySnapshotChunk)
+      returns (ResponseApplySnapshotChunk);
+  rpc ProcessProposal(RequestProcessProposal) returns (ResponseProcessProposal);
 }

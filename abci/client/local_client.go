@@ -143,6 +143,17 @@ func (app *localClient) InitChainAsync(req types.RequestInitChain) *ReqRes {
 	)
 }
 
+func (app *localClient) ProcessProposalAsync(req types.RequestProcessProposal) *ReqRes {
+	app.mtx.Lock()
+	defer app.mtx.Unlock()
+
+	res := app.Application.ProcessProposal(req)
+	return app.callback(
+		types.ToRequestProcessProposal(req),
+		types.ToResponseProcessProposal(res),
+	)
+}
+
 func (app *localClient) BeginBlockAsync(req types.RequestBeginBlock) *ReqRes {
 	app.mtx.Lock()
 	defer app.mtx.Unlock()
@@ -272,6 +283,14 @@ func (app *localClient) InitChainSync(req types.RequestInitChain) (*types.Respon
 	defer app.mtx.Unlock()
 
 	res := app.Application.InitChain(req)
+	return &res, nil
+}
+
+func (app *localClient) ProcessProposalSync(req types.RequestProcessProposal) (*types.ResponseProcessProposal, error) {
+	app.mtx.Lock()
+	defer app.mtx.Unlock()
+
+	res := app.Application.ProcessProposal(req)
 	return &res, nil
 }
 

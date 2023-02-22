@@ -248,6 +248,15 @@ func (cli *grpcClient) InitChainAsync(params types.RequestInitChain) *ReqRes {
 	return cli.finishAsyncCall(req, &types.Response{Value: &types.Response_InitChain{InitChain: res}})
 }
 
+func (cli *grpcClient) ProcessProposalAsync(params types.RequestProcessProposal) *ReqRes {
+	req := types.ToRequestProcessProposal(params)
+	res, err := cli.client.ProcessProposal(context.Background(), req.GetProcessProposal(), grpc.WaitForReady(true))
+	if err != nil {
+		cli.StopForError(err)
+	}
+	return cli.finishAsyncCall(req, &types.Response{Value: &types.Response_ProcessProposal{ProcessProposal: res}})
+}
+
 func (cli *grpcClient) BeginBlockAsync(params types.RequestBeginBlock) *ReqRes {
 	req := types.ToRequestBeginBlock(params)
 	res, err := cli.client.BeginBlock(context.Background(), req.GetBeginBlock(), grpc.WaitForReady(true))
@@ -384,6 +393,11 @@ func (cli *grpcClient) CommitSync() (*types.ResponseCommit, error) {
 func (cli *grpcClient) InitChainSync(params types.RequestInitChain) (*types.ResponseInitChain, error) {
 	reqres := cli.InitChainAsync(params)
 	return cli.finishSyncCall(reqres).GetInitChain(), cli.Error()
+}
+
+func (cli *grpcClient) ProcessProposalSync(params types.RequestProcessProposal) (*types.ResponseProcessProposal, error) {
+	reqres := cli.ProcessProposalAsync(params)
+	return cli.finishSyncCall(reqres).GetProcessProposal(), cli.Error()
 }
 
 func (cli *grpcClient) BeginBlockSync(params types.RequestBeginBlock) (*types.ResponseBeginBlock, error) {

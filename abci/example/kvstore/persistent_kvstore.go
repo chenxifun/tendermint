@@ -119,6 +119,10 @@ func (app *PersistentKVStoreApplication) InitChain(req types.RequestInitChain) t
 	return types.ResponseInitChain{}
 }
 
+func (app *PersistentKVStoreApplication) ProcessProposal(req types.RequestProcessProposal) types.ResponseProcessProposal {
+	return types.ResponseProcessProposal{}
+}
+
 // Track the block hash and header information
 func (app *PersistentKVStoreApplication) BeginBlock(req types.RequestBeginBlock) types.ResponseBeginBlock {
 	// reset valset changes

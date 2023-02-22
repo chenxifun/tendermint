@@ -123,6 +123,12 @@ func ToRequestInitChain(req RequestInitChain) *Request {
 	}
 }
 
+func ToRequestProcessProposal(req RequestProcessProposal) *Request {
+	return &Request{
+		Value: &Request_ProcessProposal{&req},
+	}
+}
+
 func ToRequestBeginBlock(req RequestBeginBlock) *Request {
 	return &Request{
 		Value: &Request_BeginBlock{&req},
@@ -218,6 +224,12 @@ func ToResponseQuery(res ResponseQuery) *Response {
 func ToResponseInitChain(res ResponseInitChain) *Response {
 	return &Response{
 		Value: &Response_InitChain{&res},
+	}
+}
+
+func ToResponseProcessProposal(res ResponseProcessProposal) *Response {
+	return &Response{
+		Value: &Response_ProcessProposal{&res},
 	}
 }
 
