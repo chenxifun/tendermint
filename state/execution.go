@@ -115,6 +115,7 @@ func (blockExec *BlockExecutor) ProcessProposal(
 	state State,
 ) (bool, error) {
 	resp, err := blockExec.proxyApp.ProcessProposalSync(abci.RequestProcessProposal{
+		ChainId:            block.Header.ChainID,
 		Hash:               block.Header.Hash(),
 		Height:             block.Header.Height,
 		Time:               block.Header.Time,

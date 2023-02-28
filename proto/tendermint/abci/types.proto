@@ -127,16 +127,17 @@ message RequestApplySnapshotChunk {
 }
 
 message RequestProcessProposal {
-  repeated bytes       txs                  = 1;
-  CommitInfo           proposed_last_commit = 2 [(gogoproto.nullable) = false];
-  repeated Evidence misbehavior             = 3 [(gogoproto.nullable) = false];
+  string               chain_id             = 1;
+  repeated bytes       txs                  = 2;
+  CommitInfo           proposed_last_commit = 3 [(gogoproto.nullable) = false];
+  repeated Evidence misbehavior             = 4 [(gogoproto.nullable) = false];
   // hash is the merkle root hash of the fields of the proposed block.
-  bytes                     hash                 = 4;
-  int64                     height               = 5;
-  google.protobuf.Timestamp time                 = 6 [(gogoproto.nullable) = false, (gogoproto.stdtime) = true];
-  bytes                     next_validators_hash = 7;
+  bytes                     hash                 = 5;
+  int64                     height               = 6;
+  google.protobuf.Timestamp time                 = 7 [(gogoproto.nullable) = false, (gogoproto.stdtime) = true];
+  bytes                     next_validators_hash = 8;
   // address of the public key of the original proposer of the block.
-  bytes proposer_address = 8;
+  bytes proposer_address = 9;
 }
 
 //----------------------------------------
