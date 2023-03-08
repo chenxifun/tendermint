@@ -22,7 +22,6 @@ import (
 	"golang.org/x/crypto/nacl/box"
 
 	"github.com/tendermint/tendermint/crypto"
-	"github.com/tendermint/tendermint/crypto/algo"
 	cryptoenc "github.com/tendermint/tendermint/crypto/encoding"
 	"github.com/tendermint/tendermint/libs/async"
 	"github.com/tendermint/tendermint/libs/protoio"
@@ -167,8 +166,11 @@ func MakeSecretConnection(conn io.ReadWriteCloser, locPrivKey crypto.PrivKey) (*
 	}
 
 	remPubKey, remSignature := authSigMsg.Key, authSigMsg.Sig
-	if !algo.VerifyPubKeyType(remPubKey) {
-		return nil, fmt.Errorf("expected %s pubkey, got %T", algo.Algo, remPubKey)
+	//if !algo.VerifyPubKeyType(remPubKey) {
+	//	return nil, fmt.Errorf("expected %s pubkey, got %T", algo.Algo, remPubKey)
+	//}
+	if remPubKey == nil {
+		return nil, errors.New("peer sent a nil public key")
 	}
 	if !remPubKey.VerifySignature(challenge[:], remSignature) {
 		return nil, errors.New("challenge verification failed")
