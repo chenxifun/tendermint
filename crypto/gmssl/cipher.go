@@ -14,7 +14,7 @@ package gmssl
 #include <string.h>
 #include <openssl/evp.h>
 #include <openssl/crypto.h>
-#include <gmssl/sms4.h>
+#include <openssl/sms4.h>
 
 static void cb_cipher_names_len(const EVP_CIPHER *cipher, const char *from,
 	const char *to, void *x) {

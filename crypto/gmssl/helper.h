@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <openssl/bn.h>
 #include <openssl/ec.h>
-#include <gmssl/sm2.h>
+#include <openssl/sm2.h>
 #include <openssl/bio.h>
 #include <openssl/evp.h>
 #include <openssl/pem.h>
