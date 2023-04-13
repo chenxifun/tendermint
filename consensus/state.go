@@ -813,14 +813,26 @@ func (cs *State) handleMsg(mi msgInfo) {
 	case *ProposalMessage:
 		// will not cause transition.
 		// once proposal is set, we can receive block parts
+		start := time.Now().UnixMilli()
 		err = cs.setProposal(msg.Proposal)
+		end := time.Now().UnixMilli()
+		cs.Logger.Info(
+			"ProposalMessage",
+			"time ", end-start,
+		)
 
 	case *BlockPartMessage:
 		// if the proposal is complete, we'll enterPrevote or tryFinalizeCommit
+		start := time.Now().UnixMilli()
 		added, err = cs.addProposalBlockPart(msg, peerID)
 		if added {
 			cs.statsMsgQueue <- mi
 		}
+		end := time.Now().UnixMilli()
+		cs.Logger.Info(
+			"BlockPartMessage",
+			"time ", end-start,
+		)
 
 		if err != nil && msg.Round != cs.Round {
 			cs.Logger.Debug(
@@ -835,10 +847,16 @@ func (cs *State) handleMsg(mi msgInfo) {
 	case *VoteMessage:
 		// attempt to add the vote and dupeout the validator if its a duplicate signature
 		// if the vote gives us a 2/3-any or 2/3-one, we transition
+		start := time.Now().UnixMilli()
 		added, err = cs.tryAddVote(msg.Vote, peerID)
 		if added {
 			cs.statsMsgQueue <- mi
 		}
+		end := time.Now().UnixMilli()
+		cs.Logger.Info(
+			"VoteMessage",
+			"time ", end-start,
+		)
 
 		// if err == ErrAddingVote {
 		// TODO: punish peer
@@ -873,7 +891,7 @@ func (cs *State) handleMsg(mi msgInfo) {
 }
 
 func (cs *State) handleTimeout(ti timeoutInfo, rs cstypes.RoundState) {
-	cs.Logger.Debug("received tock", "timeout", ti.Duration, "height", ti.Height, "round", ti.Round, "step", ti.Step)
+	cs.Logger.Info("received tock", "timeout", ti.Duration, "height", ti.Height, "round", ti.Round, "step", ti.Step)
 
 	// timeouts must be for current height, round, step
 	if ti.Height != rs.Height || ti.Round < rs.Round || (ti.Round == rs.Round && ti.Step < rs.Step) {
