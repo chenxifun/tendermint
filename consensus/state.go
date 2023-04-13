@@ -847,17 +847,10 @@ func (cs *State) handleMsg(mi msgInfo) {
 	case *VoteMessage:
 		// attempt to add the vote and dupeout the validator if its a duplicate signature
 		// if the vote gives us a 2/3-any or 2/3-one, we transition
-		start := time.Now().UnixMilli()
 		added, err = cs.tryAddVote(msg.Vote, peerID)
 		if added {
 			cs.statsMsgQueue <- mi
 		}
-		end := time.Now().UnixMilli()
-		cs.Logger.Info(
-			"VoteMessage",
-			"time ", end-start,
-		)
-
 		// if err == ErrAddingVote {
 		// TODO: punish peer
 		// We probably don't want to stop the peer here. The vote does not
