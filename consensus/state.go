@@ -2,6 +2,7 @@ package consensus
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -27,6 +28,10 @@ import (
 	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/types"
 	tmtime "github.com/tendermint/tendermint/types/time"
+
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/sdk/trace"
+	otrace "go.opentelemetry.io/otel/trace"
 )
 
 // Consensus sentinel errors
@@ -126,7 +131,7 @@ type State struct {
 	nSteps int
 
 	// some functions can be overwritten for testing
-	decideProposal func(height int64, round int32)
+	decideProposal func(ctx context.Context, height int64, round int32)
 	doPrevote      func(height int64, round int32)
 	setProposal    func(proposal *types.Proposal) error
 
@@ -139,6 +144,12 @@ type State struct {
 
 	// for reporting metrics
 	metrics *Metrics
+
+	tracer                otrace.Tracer
+	tracerProviderOptions []trace.TracerProviderOption
+	heightSpan            otrace.Span
+	heightBeingTraced     int64
+	tracingCtx            context.Context
 }
 
 // StateOption sets an optional parameter on the State.
@@ -152,6 +163,7 @@ func NewState(
 	blockStore sm.BlockStore,
 	txNotifier txNotifier,
 	evpool evidencePool,
+	traceProviderOps []trace.TracerProviderOption,
 	options ...StateOption,
 ) *State {
 	cs := &State{
@@ -189,6 +201,9 @@ func NewState(
 	for _, option := range options {
 		option(cs)
 	}
+	tp := trace.NewTracerProvider(traceProviderOps...)
+	cs.tracer = tp.Tracer("tm-consensus-state")
+	cs.tracerProviderOptions = traceProviderOps
 
 	return cs
 }
@@ -258,6 +273,17 @@ func (cs *State) GetValidators() (int64, []*types.Validator) {
 	cs.mtx.RLock()
 	defer cs.mtx.RUnlock()
 	return cs.state.LastBlockHeight, cs.state.Validators.Copy().Validators
+}
+
+func (cs *State) getTracingCtx(defaultCtx context.Context) context.Context {
+	if cs.tracingCtx != nil {
+		return cs.tracingCtx
+	}
+	if defaultCtx == nil {
+		cs.tracingCtx = context.Background()
+		return cs.tracingCtx
+	}
+	return defaultCtx
 }
 
 // SetPrivValidator sets the private validator account for signing votes. It
@@ -813,27 +839,20 @@ func (cs *State) handleMsg(mi msgInfo) {
 	case *ProposalMessage:
 		// will not cause transition.
 		// once proposal is set, we can receive block parts
-		start := time.Now().UnixMilli()
+		_, span := cs.tracer.Start(cs.getTracingCtx(nil), "cs.state.handleProposalMsg")
+		span.SetAttributes(attribute.Int("round", int(msg.Proposal.Round)))
+		defer span.End()
 		err = cs.setProposal(msg.Proposal)
-		end := time.Now().UnixMilli()
-		cs.Logger.Info(
-			"ProposalMessage",
-			"time ", end-start,
-		)
 
 	case *BlockPartMessage:
 		// if the proposal is complete, we'll enterPrevote or tryFinalizeCommit
-		start := time.Now().UnixMilli()
+		_, span := cs.tracer.Start(cs.getTracingCtx(nil), "cs.state.handleBlockPartMsg")
+		span.SetAttributes(attribute.Int("round", int(msg.Round)))
+		defer span.End()
 		added, err = cs.addProposalBlockPart(msg, peerID)
 		if added {
 			cs.statsMsgQueue <- mi
 		}
-		end := time.Now().UnixMilli()
-		cs.Logger.Info(
-			"BlockPartMessage",
-			"time ", end-start,
-		)
-
 		if err != nil && msg.Round != cs.Round {
 			cs.Logger.Debug(
 				"received block part from wrong round",
@@ -845,6 +864,9 @@ func (cs *State) handleMsg(mi msgInfo) {
 		}
 
 	case *VoteMessage:
+		_, span := cs.tracer.Start(cs.getTracingCtx(nil), "cs.state.handleVoteMsg")
+		span.SetAttributes(attribute.Int("round", int(msg.Vote.Round)))
+		defer span.End()
 		// attempt to add the vote and dupeout the validator if its a duplicate signature
 		// if the vote gives us a 2/3-any or 2/3-one, we transition
 		added, err = cs.tryAddVote(msg.Vote, peerID)
@@ -969,6 +991,11 @@ func (cs *State) handleTxsAvailable() {
 // Enter: +2/3 prevotes any or +2/3 precommits for block or any from (height, round)
 // NOTE: cs.StartTime was already set for height.
 func (cs *State) enterNewRound(height int64, round int32) {
+	_, span := cs.tracer.Start(cs.getTracingCtx(nil), "cs.state.enterNewRound")
+	span.SetAttributes(attribute.Int("round", int(round)))
+	span.SetAttributes(attribute.Int("height", int(height)))
+	defer span.End()
+
 	logger := cs.Logger.With("height", height, "round", round)
 
 	if cs.Height != height || round < cs.Round || (cs.Round == round && cs.Step != cstypes.RoundStepNewHeight) {
@@ -1051,6 +1078,10 @@ func (cs *State) needProofBlock(height int64) bool {
 // 		after enterNewRound(height,round), after timeout of CreateEmptyBlocksInterval
 // Enter (!CreateEmptyBlocks) : after enterNewRound(height,round), once txs are in the mempool
 func (cs *State) enterPropose(height int64, round int32) {
+	spanCtx, span := cs.tracer.Start(cs.getTracingCtx(nil), "cs.state.enterPropose")
+	span.SetAttributes(attribute.Int("round", int(round)))
+	span.SetAttributes(attribute.Int("height", int(height)))
+	defer span.End()
 	logger := cs.Logger.With("height", height, "round", round)
 
 	if cs.Height != height || round < cs.Round || (cs.Round == round && cstypes.RoundStepPropose <= cs.Step) {
@@ -1104,7 +1135,7 @@ func (cs *State) enterPropose(height int64, round int32) {
 
 	if cs.isProposer(address) {
 		logger.Debug("propose step; our turn to propose", "proposer", address)
-		cs.decideProposal(height, round)
+		cs.decideProposal(spanCtx, height, round)
 	} else {
 		logger.Debug("propose step; not our turn to propose", "proposer", cs.Validators.GetProposer().Address)
 	}
@@ -1114,7 +1145,12 @@ func (cs *State) isProposer(address []byte) bool {
 	return bytes.Equal(cs.Validators.GetProposer().Address, address)
 }
 
-func (cs *State) defaultDecideProposal(height int64, round int32) {
+func (cs *State) defaultDecideProposal(ctx context.Context, height int64, round int32) {
+
+	_, span := cs.tracer.Start(ctx, "cs.state.decideProposal")
+	span.SetAttributes(attribute.Int("round", int(round)))
+	defer span.End()
+
 	var block *types.Block
 	var blockParts *types.PartSet
 
@@ -1218,6 +1254,10 @@ func (cs *State) createProposalBlock() (block *types.Block, blockParts *types.Pa
 // Prevote for LockedBlock if we're locked, or ProposalBlock if valid.
 // Otherwise vote nil.
 func (cs *State) enterPrevote(height int64, round int32) {
+	_, span := cs.tracer.Start(cs.getTracingCtx(nil), "cs.state.enterPrevote")
+	span.SetAttributes(attribute.Int("round", int(round)))
+	span.SetAttributes(attribute.Int("height", int(height)))
+	defer span.End()
 	logger := cs.Logger.With("height", height, "round", round)
 
 	if cs.Height != height || round < cs.Round || (cs.Round == round && cstypes.RoundStepPrevote <= cs.Step) {
@@ -1244,6 +1284,10 @@ func (cs *State) enterPrevote(height int64, round int32) {
 }
 
 func (cs *State) defaultDoPrevote(height int64, round int32) {
+	_, span := cs.tracer.Start(cs.getTracingCtx(nil), "cs.state.defaultDoPrevote")
+	span.SetAttributes(attribute.Int("round", int(round)))
+	span.SetAttributes(attribute.Int("height", int(height)))
+	defer span.End()
 	logger := cs.Logger.With("height", height, "round", round)
 
 	// If a block is locked, prevote that.
@@ -1290,6 +1334,10 @@ func (cs *State) defaultDoPrevote(height int64, round int32) {
 
 // Enter: any +2/3 prevotes at next round.
 func (cs *State) enterPrevoteWait(height int64, round int32) {
+	_, span := cs.tracer.Start(cs.getTracingCtx(nil), "cs.state.enterPrevoteWait")
+	span.SetAttributes(attribute.Int("round", int(round)))
+	span.SetAttributes(attribute.Int("height", int(height)))
+	defer span.End()
 	logger := cs.Logger.With("height", height, "round", round)
 
 	if cs.Height != height || round < cs.Round || (cs.Round == round && cstypes.RoundStepPrevoteWait <= cs.Step) {
@@ -1326,6 +1374,10 @@ func (cs *State) enterPrevoteWait(height int64, round int32) {
 // else, unlock an existing lock and precommit nil if +2/3 of prevotes were nil,
 // else, precommit nil otherwise.
 func (cs *State) enterPrecommit(height int64, round int32) {
+	_, span := cs.tracer.Start(cs.getTracingCtx(nil), "cs.state.enterPrecommit")
+	span.SetAttributes(attribute.Int("round", int(round)))
+	span.SetAttributes(attribute.Int("height", int(height)))
+	defer span.End()
 	logger := cs.Logger.With("height", height, "round", round)
 
 	if cs.Height != height || round < cs.Round || (cs.Round == round && cstypes.RoundStepPrecommit <= cs.Step) {
@@ -1480,6 +1532,10 @@ func (cs *State) enterPrecommitWait(height int64, round int32) {
 
 // Enter: +2/3 precommits for block
 func (cs *State) enterCommit(height int64, commitRound int32) {
+	_, span := cs.tracer.Start(cs.getTracingCtx(nil), "cs.state.enterCommit")
+	span.SetAttributes(attribute.Int("round", int(commitRound)))
+	span.SetAttributes(attribute.Int("height", int(height)))
+	defer span.End()
 	logger := cs.Logger.With("height", height, "commit_round", commitRound)
 
 	if cs.Height != height || cstypes.RoundStepCommit <= cs.Step {
@@ -1571,6 +1627,8 @@ func (cs *State) tryFinalizeCommit(height int64) {
 
 // Increment height and goto cstypes.RoundStepNewHeight
 func (cs *State) finalizeCommit(height int64) {
+	spanCtx, span := cs.tracer.Start(cs.getTracingCtx(nil), "cs.state.finalizeCommit")
+	defer span.End()
 	logger := cs.Logger.With("height", height)
 
 	if cs.Height != height || cs.Step != cstypes.RoundStepCommit {
@@ -1610,6 +1668,8 @@ func (cs *State) finalizeCommit(height int64) {
 
 	// Save to blockStore.
 	if cs.blockStore.Height() < block.Height {
+		_, storeBlockSpan := cs.tracer.Start(spanCtx, "cs.state.finalizeCommit.saveblockstore")
+		defer storeBlockSpan.End()
 		// NOTE: the seenCommit is local justification to commit this block,
 		// but may differ from the LastCommit included in the next block
 		precommits := cs.Votes.Precommits(cs.CommitRound)
@@ -1636,12 +1696,15 @@ func (cs *State) finalizeCommit(height int64) {
 	// successfully call ApplyBlock (ie. later here, or in Handshake after
 	// restart).
 	endMsg := EndHeightMessage{height}
+	_, fsyncSpan := cs.tracer.Start(spanCtx, "cs.state.finalizeCommit.fsync")
+	defer fsyncSpan.End()
 	if err := cs.wal.WriteSync(endMsg); err != nil { // NOTE: fsync
 		panic(fmt.Sprintf(
 			"failed to write %v msg to consensus WAL due to %v; check your file system and restart the node",
 			endMsg, err,
 		))
 	}
+	fsyncSpan.End()
 
 	fail.Fail() // XXX
 
