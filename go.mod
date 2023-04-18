@@ -38,6 +38,7 @@ require (
 	github.com/stretchr/testify v1.7.1
 	github.com/tendermint/tm-db v0.6.4
 	github.com/tjfoc/gmsm v1.4.0
+	go.opentelemetry.io/otel v1.9.0
 	go.opentelemetry.io/otel/sdk v1.9.0
 	go.opentelemetry.io/otel/trace v1.9.0
 	golang.org/x/crypto v0.0.0-20201117144127-c1f2f97bffc9

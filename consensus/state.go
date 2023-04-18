@@ -145,6 +145,8 @@ type State struct {
 	// for reporting metrics
 	metrics *Metrics
 
+	ctx context.Context
+
 	tracer                otrace.Tracer
 	tracerProviderOptions []trace.TracerProviderOption
 	heightSpan            otrace.Span
@@ -164,6 +166,7 @@ func NewState(
 	txNotifier txNotifier,
 	evpool evidencePool,
 	traceProviderOps []trace.TracerProviderOption,
+	ctx context.Context,
 	options ...StateOption,
 ) *State {
 	cs := &State{
@@ -181,6 +184,7 @@ func NewState(
 		evpool:           evpool,
 		evsw:             tmevents.NewEventSwitch(),
 		metrics:          NopMetrics(),
+		ctx:              ctx,
 	}
 
 	// set function defaults (may be overwritten before calling Start)
@@ -275,15 +279,11 @@ func (cs *State) GetValidators() (int64, []*types.Validator) {
 	return cs.state.LastBlockHeight, cs.state.Validators.Copy().Validators
 }
 
-func (cs *State) getTracingCtx(defaultCtx context.Context) context.Context {
+func (cs *State) getTracingCtx() context.Context {
 	if cs.tracingCtx != nil {
 		return cs.tracingCtx
 	}
-	if defaultCtx == nil {
-		cs.tracingCtx = context.Background()
-		return cs.tracingCtx
-	}
-	return defaultCtx
+	return cs.ctx
 }
 
 // SetPrivValidator sets the private validator account for signing votes. It
@@ -839,14 +839,14 @@ func (cs *State) handleMsg(mi msgInfo) {
 	case *ProposalMessage:
 		// will not cause transition.
 		// once proposal is set, we can receive block parts
-		_, span := cs.tracer.Start(cs.getTracingCtx(nil), "cs.state.handleProposalMsg")
+		_, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.handleProposalMsg")
 		span.SetAttributes(attribute.Int("round", int(msg.Proposal.Round)))
 		defer span.End()
 		err = cs.setProposal(msg.Proposal)
 
 	case *BlockPartMessage:
 		// if the proposal is complete, we'll enterPrevote or tryFinalizeCommit
-		_, span := cs.tracer.Start(cs.getTracingCtx(nil), "cs.state.handleBlockPartMsg")
+		_, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.handleBlockPartMsg")
 		span.SetAttributes(attribute.Int("round", int(msg.Round)))
 		defer span.End()
 		added, err = cs.addProposalBlockPart(msg, peerID)
@@ -864,7 +864,7 @@ func (cs *State) handleMsg(mi msgInfo) {
 		}
 
 	case *VoteMessage:
-		_, span := cs.tracer.Start(cs.getTracingCtx(nil), "cs.state.handleVoteMsg")
+		_, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.handleVoteMsg")
 		span.SetAttributes(attribute.Int("round", int(msg.Vote.Round)))
 		defer span.End()
 		// attempt to add the vote and dupeout the validator if its a duplicate signature
@@ -991,7 +991,15 @@ func (cs *State) handleTxsAvailable() {
 // Enter: +2/3 prevotes any or +2/3 precommits for block or any from (height, round)
 // NOTE: cs.StartTime was already set for height.
 func (cs *State) enterNewRound(height int64, round int32) {
-	_, span := cs.tracer.Start(cs.getTracingCtx(nil), "cs.state.enterNewRound")
+	if height > cs.heightBeingTraced {
+		if cs.heightSpan != nil {
+			cs.heightSpan.End()
+		}
+		cs.heightBeingTraced = height
+		cs.tracingCtx, cs.heightSpan = cs.tracer.Start(cs.ctx, "cs.state.Height")
+		cs.heightSpan.SetAttributes(attribute.Int64("height", height))
+	}
+	_, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.enterNewRound")
 	span.SetAttributes(attribute.Int("round", int(round)))
 	span.SetAttributes(attribute.Int("height", int(height)))
 	defer span.End()
@@ -1078,7 +1086,7 @@ func (cs *State) needProofBlock(height int64) bool {
 // 		after enterNewRound(height,round), after timeout of CreateEmptyBlocksInterval
 // Enter (!CreateEmptyBlocks) : after enterNewRound(height,round), once txs are in the mempool
 func (cs *State) enterPropose(height int64, round int32) {
-	spanCtx, span := cs.tracer.Start(cs.getTracingCtx(nil), "cs.state.enterPropose")
+	spanCtx, span := cs.tracer.Start(context.Background(), "cs.state.enterPropose")
 	span.SetAttributes(attribute.Int("round", int(round)))
 	span.SetAttributes(attribute.Int("height", int(height)))
 	defer span.End()
@@ -1254,7 +1262,7 @@ func (cs *State) createProposalBlock() (block *types.Block, blockParts *types.Pa
 // Prevote for LockedBlock if we're locked, or ProposalBlock if valid.
 // Otherwise vote nil.
 func (cs *State) enterPrevote(height int64, round int32) {
-	_, span := cs.tracer.Start(cs.getTracingCtx(nil), "cs.state.enterPrevote")
+	_, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.enterPrevote")
 	span.SetAttributes(attribute.Int("round", int(round)))
 	span.SetAttributes(attribute.Int("height", int(height)))
 	defer span.End()
@@ -1284,7 +1292,7 @@ func (cs *State) enterPrevote(height int64, round int32) {
 }
 
 func (cs *State) defaultDoPrevote(height int64, round int32) {
-	_, span := cs.tracer.Start(cs.getTracingCtx(nil), "cs.state.defaultDoPrevote")
+	_, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.defaultDoPrevote")
 	span.SetAttributes(attribute.Int("round", int(round)))
 	span.SetAttributes(attribute.Int("height", int(height)))
 	defer span.End()
@@ -1334,7 +1342,7 @@ func (cs *State) defaultDoPrevote(height int64, round int32) {
 
 // Enter: any +2/3 prevotes at next round.
 func (cs *State) enterPrevoteWait(height int64, round int32) {
-	_, span := cs.tracer.Start(cs.getTracingCtx(nil), "cs.state.enterPrevoteWait")
+	_, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.enterPrevoteWait")
 	span.SetAttributes(attribute.Int("round", int(round)))
 	span.SetAttributes(attribute.Int("height", int(height)))
 	defer span.End()
@@ -1374,7 +1382,7 @@ func (cs *State) enterPrevoteWait(height int64, round int32) {
 // else, unlock an existing lock and precommit nil if +2/3 of prevotes were nil,
 // else, precommit nil otherwise.
 func (cs *State) enterPrecommit(height int64, round int32) {
-	_, span := cs.tracer.Start(cs.getTracingCtx(nil), "cs.state.enterPrecommit")
+	_, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.enterPrecommit")
 	span.SetAttributes(attribute.Int("round", int(round)))
 	span.SetAttributes(attribute.Int("height", int(height)))
 	defer span.End()
@@ -1532,7 +1540,7 @@ func (cs *State) enterPrecommitWait(height int64, round int32) {
 
 // Enter: +2/3 precommits for block
 func (cs *State) enterCommit(height int64, commitRound int32) {
-	_, span := cs.tracer.Start(cs.getTracingCtx(nil), "cs.state.enterCommit")
+	_, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.enterCommit")
 	span.SetAttributes(attribute.Int("round", int(commitRound)))
 	span.SetAttributes(attribute.Int("height", int(height)))
 	defer span.End()
@@ -1627,7 +1635,7 @@ func (cs *State) tryFinalizeCommit(height int64) {
 
 // Increment height and goto cstypes.RoundStepNewHeight
 func (cs *State) finalizeCommit(height int64) {
-	spanCtx, span := cs.tracer.Start(cs.getTracingCtx(nil), "cs.state.finalizeCommit")
+	spanCtx, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.finalizeCommit")
 	defer span.End()
 	logger := cs.Logger.With("height", height)
 

@@ -95,6 +95,8 @@ func DefaultNewNode(config *cfg.Config, logger log.Logger) (*Node, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to load or gen node key %s: %w", config.NodeKeyFile(), err)
 	}
+	goCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	return NewNode(config,
 		privval.LoadOrGenFilePV(config.PrivValidatorKeyFile(), config.PrivValidatorStateFile()),
@@ -105,6 +107,7 @@ func DefaultNewNode(config *cfg.Config, logger log.Logger) (*Node, error) {
 		DefaultMetricsProvider(config.Instrumentation),
 		logger,
 		[]trace.TracerProviderOption{},
+		goCtx,
 	)
 }
 
@@ -431,7 +434,8 @@ func createConsensusReactor(config *cfg.Config,
 	waitSync bool,
 	eventBus *types.EventBus,
 	consensusLogger log.Logger,
-	traceProviderOps []trace.TracerProviderOption) (*cs.Reactor, *cs.State) {
+	traceProviderOps []trace.TracerProviderOption,
+	ctx context.Context) (*cs.Reactor, *cs.State) {
 
 	consensusState := cs.NewState(
 		config.Consensus,
@@ -441,6 +445,7 @@ func createConsensusReactor(config *cfg.Config,
 		mempool,
 		evidencePool,
 		traceProviderOps,
+		ctx,
 		cs.StateMetrics(csMetrics),
 	)
 	consensusState.SetLogger(consensusLogger)
@@ -671,6 +676,7 @@ func NewNode(config *cfg.Config,
 	metricsProvider MetricsProvider,
 	logger log.Logger,
 	tracerProviderOptions []trace.TracerProviderOption,
+	ctx context.Context,
 	options ...Option) (*Node, error) {
 
 	blockStore, stateDB, err := initDBs(config, dbProvider)
@@ -787,7 +793,7 @@ func NewNode(config *cfg.Config,
 	}
 	consensusReactor, consensusState := createConsensusReactor(
 		config, state, blockExec, blockStore, mempool, evidencePool,
-		privValidator, csMetrics, stateSync || fastSync, eventBus, consensusLogger, tracerProviderOptions,
+		privValidator, csMetrics, stateSync || fastSync, eventBus, consensusLogger, tracerProviderOptions, ctx,
 	)
 
 	// Set up state sync reactor, and schedule a sync if requested.
