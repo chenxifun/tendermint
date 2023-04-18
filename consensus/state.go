@@ -864,9 +864,6 @@ func (cs *State) handleMsg(mi msgInfo) {
 		}
 
 	case *VoteMessage:
-		_, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.handleVoteMsg")
-		span.SetAttributes(attribute.Int("round", int(msg.Vote.Round)))
-		defer span.End()
 		// attempt to add the vote and dupeout the validator if its a duplicate signature
 		// if the vote gives us a 2/3-any or 2/3-one, we transition
 		added, err = cs.tryAddVote(msg.Vote, peerID)
