@@ -68,6 +68,7 @@ type Config struct {
 	Consensus       *ConsensusConfig       `mapstructure:"consensus"`
 	TxIndex         *TxIndexConfig         `mapstructure:"tx_index"`
 	Instrumentation *InstrumentationConfig `mapstructure:"instrumentation"`
+	JaegerConfig    *JaegerConfig          `mapstructure:"jaegerConfig"`
 }
 
 // DefaultConfig returns a default configuration for a Tendermint node
@@ -82,6 +83,7 @@ func DefaultConfig() *Config {
 		Consensus:       DefaultConsensusConfig(),
 		TxIndex:         DefaultTxIndexConfig(),
 		Instrumentation: DefaultInstrumentationConfig(),
+		JaegerConfig:    DefaultJaegerConfig(),
 	}
 }
 
@@ -1060,6 +1062,25 @@ type InstrumentationConfig struct {
 	Namespace string `mapstructure:"namespace"`
 }
 
+type JaegerConfig struct {
+	ServerName string `mapstructure:"server_name"`
+
+	JeagerUrl string `mapstructure:"jeager_url"`
+
+	Environment string `mapstructure:"environment"`
+
+	ID int64 `mapstructure:"id"`
+}
+
+func DefaultJaegerConfig() *JaegerConfig {
+	return &JaegerConfig{
+		ServerName:  "tendermint",
+		JeagerUrl:   "http://192.168.10.6:14268/api/traces",
+		Environment: "product",
+		ID:          1,
+	}
+}
+
 // DefaultInstrumentationConfig returns a default configuration for metrics
 // reporting.
 func DefaultInstrumentationConfig() *InstrumentationConfig {
@@ -1082,6 +1103,13 @@ func TestInstrumentationConfig() *InstrumentationConfig {
 func (cfg *InstrumentationConfig) ValidateBasic() error {
 	if cfg.MaxOpenConnections < 0 {
 		return errors.New("max_open_connections can't be negative")
+	}
+	return nil
+}
+
+func (cfg *JaegerConfig) ValidateBasic() error {
+	if cfg.JeagerUrl == "" {
+		return errors.New("url is null")
 	}
 	return nil
 }

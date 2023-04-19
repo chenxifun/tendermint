@@ -469,6 +469,16 @@ max_open_connections = {{ .Instrumentation.MaxOpenConnections }}
 
 # Instrumentation namespace
 namespace = "{{ .Instrumentation.Namespace }}"
+
+#######################################################
+###       Jaeger Configuration Options     ###
+#######################################################
+[jaegerConfig]
+
+server_name = "{{ .JaegerConfig.ServerName }}"
+jeager_url = "{{ .JaegerConfig.JeagerUrl }}"
+environment = "{{ .JaegerConfig.Environment }}"
+id = {{ .JaegerConfig.ID }}
 `
 
 /****** these are for test settings ***********/
