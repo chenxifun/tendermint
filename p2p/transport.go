@@ -2,6 +2,7 @@ package p2p
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"time"
@@ -63,7 +64,7 @@ type Transport interface {
 	Accept(peerConfig) (Peer, error)
 
 	// Dial connects to the Peer for the address.
-	Dial(NetAddress, peerConfig) (Peer, error)
+	Dial(NetAddress, peerConfig, bool) (Peer, error)
 
 	// Cleanup any resources associated with Peer.
 	Cleanup(Peer)
@@ -208,8 +209,16 @@ func (mt *MultiplexTransport) Accept(cfg peerConfig) (Peer, error) {
 func (mt *MultiplexTransport) Dial(
 	addr NetAddress,
 	cfg peerConfig,
+	tlsSwitch bool,
 ) (Peer, error) {
-	c, err := addr.DialTimeout(mt.dialTimeout)
+	var c net.Conn
+	var err error
+	if tlsSwitch {
+		c, err = addr.TlsDialTimeout(mt.dialTimeout)
+	} else {
+		c, err = addr.DialTimeout(mt.dialTimeout)
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -245,6 +254,31 @@ func (mt *MultiplexTransport) Close() error {
 // Listen implements transportLifecycle.
 func (mt *MultiplexTransport) Listen(addr NetAddress) error {
 	ln, err := net.Listen("tcp", addr.DialString())
+	if err != nil {
+		return err
+	}
+
+	if mt.maxIncomingConnections > 0 {
+		ln = netutil.LimitListener(ln, mt.maxIncomingConnections)
+	}
+
+	mt.netAddr = addr
+	mt.listener = ln
+
+	go mt.acceptPeers()
+
+	return nil
+}
+
+// ListenAndTls implements transportLifecycle.
+func (mt *MultiplexTransport) ListenAndTls(addr NetAddress, cert, key string) error {
+	cer, err := tls.LoadX509KeyPair(cert, key)
+	if err != nil {
+		return err
+	}
+	config := &tls.Config{Certificates: []tls.Certificate{cer}}
+
+	ln, err := tls.Listen("tcp", addr.DialString(), config)
 	if err != nil {
 		return err
 	}

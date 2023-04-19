@@ -5,6 +5,7 @@
 package p2p
 
 import (
+	"crypto/tls"
 	"encoding/hex"
 	"errors"
 	"flag"
@@ -243,6 +244,18 @@ func (na *NetAddress) Dial() (net.Conn, error) {
 // DialTimeout calls net.DialTimeout on the address.
 func (na *NetAddress) DialTimeout(timeout time.Duration) (net.Conn, error) {
 	conn, err := net.DialTimeout("tcp", na.DialString(), timeout)
+	if err != nil {
+		return nil, err
+	}
+	return conn, nil
+}
+
+// TlsDialTimeout calls tls.DialWithDialer on the address.
+func (na *NetAddress) TlsDialTimeout(timeout time.Duration) (net.Conn, error) {
+	conf := &tls.Config{
+		InsecureSkipVerify: true,
+	}
+	conn, err := tls.DialWithDialer(&net.Dialer{Timeout: timeout}, "tcp", na.DialString(), conf)
 	if err != nil {
 		return nil, err
 	}

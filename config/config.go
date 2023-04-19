@@ -472,6 +472,12 @@ type P2PConfig struct { //nolint: maligned
 	// Address to listen for incoming connections
 	ListenAddress string `mapstructure:"laddr"`
 
+	TlsSwitch bool `mapstructure:"tls_switch"`
+
+	Cert string `mapstructure:"cert"`
+
+	Key string `mapstructure:"key"`
+
 	// Address to advertise to peers for them to dial
 	ExternalAddress string `mapstructure:"external_address"`
 
@@ -999,12 +1005,14 @@ func (cfg *ConsensusConfig) ValidateBasic() error {
 	return nil
 }
 
-//-----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 // TxIndexConfig
 // Remember that Event has the following structure:
 // type: [
-//  key: value,
-//  ...
+//
+//	key: value,
+//	...
+//
 // ]
 //
 // CompositeKeys are constructed by `type.key`
