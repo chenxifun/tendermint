@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	context2 "golang.org/x/net/context"
 	"io"
 	"io/ioutil"
 	"os"
@@ -627,7 +628,7 @@ func TestMockProxyApp(t *testing.T) {
 		mock.SetResponseCallback(proxyCb)
 
 		someTx := []byte("tx")
-		mock.DeliverTxAsync(abci.RequestDeliverTx{Tx: someTx})
+		mock.DeliverTxAsync(nil, abci.RequestDeliverTx{Tx: someTx})
 	})
 	assert.True(t, validTxs == 1)
 	assert.True(t, invalidTxs == 0)
@@ -780,7 +781,7 @@ func applyBlock(stateStore sm.Store, st sm.State, blk *types.Block, proxyApp pro
 	blockExec := sm.NewBlockExecutor(stateStore, log.TestingLogger(), proxyApp.Consensus(), mempool, evpool)
 
 	blkID := types.BlockID{Hash: blk.Hash(), PartSetHeader: blk.MakePartSet(testPartSize).Header()}
-	newState, _, err := blockExec.ApplyBlock(st, blkID, blk)
+	newState, _, err := blockExec.ApplyBlock(nil, st, blkID, blk, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -1001,7 +1002,7 @@ type badApp struct {
 	onlyLastHashIsWrong bool
 }
 
-func (app *badApp) Commit() abci.ResponseCommit {
+func (app *badApp) Commit(context2.Context) abci.ResponseCommit {
 	app.height++
 	if app.onlyLastHashIsWrong {
 		if app.height == app.numBlocks {

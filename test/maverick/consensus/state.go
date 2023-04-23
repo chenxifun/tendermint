@@ -1507,10 +1507,7 @@ func (cs *State) finalizeCommit(height int64) {
 	// NOTE The block.AppHash wont reflect these txs until the next block.
 	var err error
 	var retainHeight int64
-	stateCopy, retainHeight, err = cs.blockExec.ApplyBlock(
-		stateCopy,
-		types.BlockID{Hash: block.Hash(), PartSetHeader: blockParts.Header()},
-		block)
+	stateCopy, retainHeight, err = cs.blockExec.ApplyBlock(nil, stateCopy, types.BlockID{Hash: block.Hash(), PartSetHeader: blockParts.Header()}, block, nil)
 	if err != nil {
 		cs.Logger.Error("Error on ApplyBlock", "err", err)
 		return

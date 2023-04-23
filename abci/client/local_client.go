@@ -1,6 +1,7 @@
 package abcicli
 
 import (
+	"context"
 	types "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/libs/service"
 	tmsync "github.com/tendermint/tendermint/libs/sync"
@@ -88,11 +89,11 @@ func (app *localClient) SetOptionAsync(req types.RequestSetOption) *ReqRes {
 	)
 }
 
-func (app *localClient) DeliverTxAsync(params types.RequestDeliverTx) *ReqRes {
+func (app *localClient) DeliverTxAsync(ctx context.Context, params types.RequestDeliverTx) *ReqRes {
 	app.mtx.Lock()
 	defer app.mtx.Unlock()
 
-	res := app.Application.DeliverTx(params)
+	res := app.Application.DeliverTx(ctx, params)
 	return app.callback(
 		types.ToRequestDeliverTx(params),
 		types.ToResponseDeliverTx(res),
@@ -121,11 +122,11 @@ func (app *localClient) QueryAsync(req types.RequestQuery) *ReqRes {
 	)
 }
 
-func (app *localClient) CommitAsync() *ReqRes {
+func (app *localClient) CommitAsync(ctx context.Context) *ReqRes {
 	app.mtx.Lock()
 	defer app.mtx.Unlock()
 
-	res := app.Application.Commit()
+	res := app.Application.Commit(ctx)
 	return app.callback(
 		types.ToRequestCommit(),
 		types.ToResponseCommit(res),
@@ -143,33 +144,33 @@ func (app *localClient) InitChainAsync(req types.RequestInitChain) *ReqRes {
 	)
 }
 
-func (app *localClient) ProcessProposalAsync(req types.RequestProcessProposal) *ReqRes {
+func (app *localClient) ProcessProposalAsync(ctx context.Context, req types.RequestProcessProposal) *ReqRes {
 	app.mtx.Lock()
 	defer app.mtx.Unlock()
 
-	res := app.Application.ProcessProposal(req)
+	res := app.Application.ProcessProposal(ctx, req)
 	return app.callback(
 		types.ToRequestProcessProposal(req),
 		types.ToResponseProcessProposal(res),
 	)
 }
 
-func (app *localClient) BeginBlockAsync(req types.RequestBeginBlock) *ReqRes {
+func (app *localClient) BeginBlockAsync(ctx context.Context, req types.RequestBeginBlock) *ReqRes {
 	app.mtx.Lock()
 	defer app.mtx.Unlock()
 
-	res := app.Application.BeginBlock(req)
+	res := app.Application.BeginBlock(ctx, req)
 	return app.callback(
 		types.ToRequestBeginBlock(req),
 		types.ToResponseBeginBlock(res),
 	)
 }
 
-func (app *localClient) EndBlockAsync(req types.RequestEndBlock) *ReqRes {
+func (app *localClient) EndBlockAsync(ctx context.Context, req types.RequestEndBlock) *ReqRes {
 	app.mtx.Lock()
 	defer app.mtx.Unlock()
 
-	res := app.Application.EndBlock(req)
+	res := app.Application.EndBlock(ctx, req)
 	return app.callback(
 		types.ToRequestEndBlock(req),
 		types.ToResponseEndBlock(res),
@@ -246,11 +247,11 @@ func (app *localClient) SetOptionSync(req types.RequestSetOption) (*types.Respon
 	return &res, nil
 }
 
-func (app *localClient) DeliverTxSync(req types.RequestDeliverTx) (*types.ResponseDeliverTx, error) {
+func (app *localClient) DeliverTxSync(ctx context.Context, req types.RequestDeliverTx) (*types.ResponseDeliverTx, error) {
 	app.mtx.Lock()
 	defer app.mtx.Unlock()
 
-	res := app.Application.DeliverTx(req)
+	res := app.Application.DeliverTx(ctx, req)
 	return &res, nil
 }
 
@@ -270,11 +271,11 @@ func (app *localClient) QuerySync(req types.RequestQuery) (*types.ResponseQuery,
 	return &res, nil
 }
 
-func (app *localClient) CommitSync() (*types.ResponseCommit, error) {
+func (app *localClient) CommitSync(ctx context.Context) (*types.ResponseCommit, error) {
 	app.mtx.Lock()
 	defer app.mtx.Unlock()
 
-	res := app.Application.Commit()
+	res := app.Application.Commit(ctx)
 	return &res, nil
 }
 
@@ -286,27 +287,27 @@ func (app *localClient) InitChainSync(req types.RequestInitChain) (*types.Respon
 	return &res, nil
 }
 
-func (app *localClient) ProcessProposalSync(req types.RequestProcessProposal) (*types.ResponseProcessProposal, error) {
+func (app *localClient) ProcessProposalSync(ctx context.Context, req types.RequestProcessProposal) (*types.ResponseProcessProposal, error) {
 	app.mtx.Lock()
 	defer app.mtx.Unlock()
 
-	res := app.Application.ProcessProposal(req)
+	res := app.Application.ProcessProposal(ctx, req)
 	return &res, nil
 }
 
-func (app *localClient) BeginBlockSync(req types.RequestBeginBlock) (*types.ResponseBeginBlock, error) {
+func (app *localClient) BeginBlockSync(ctx context.Context, req types.RequestBeginBlock) (*types.ResponseBeginBlock, error) {
 	app.mtx.Lock()
 	defer app.mtx.Unlock()
 
-	res := app.Application.BeginBlock(req)
+	res := app.Application.BeginBlock(ctx, req)
 	return &res, nil
 }
 
-func (app *localClient) EndBlockSync(req types.RequestEndBlock) (*types.ResponseEndBlock, error) {
+func (app *localClient) EndBlockSync(ctx context.Context, req types.RequestEndBlock) (*types.ResponseEndBlock, error) {
 	app.mtx.Lock()
 	defer app.mtx.Unlock()
 
-	res := app.Application.EndBlock(req)
+	res := app.Application.EndBlock(ctx, req)
 	return &res, nil
 }
 

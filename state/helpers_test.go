@@ -3,6 +3,7 @@ package state_test
 import (
 	"bytes"
 	"fmt"
+	"golang.org/x/net/context"
 	"time"
 
 	dbm "github.com/tendermint/tm-db"
@@ -60,7 +61,7 @@ func makeAndApplyGoodBlock(state sm.State, height int64, lastCommit *types.Commi
 	}
 	blockID := types.BlockID{Hash: block.Hash(),
 		PartSetHeader: types.PartSetHeader{Total: 3, Hash: tmrand.Bytes(32)}}
-	state, _, err := blockExec.ApplyBlock(state, blockID, block)
+	state, _, err := blockExec.ApplyBlock(nil, state, blockID, block, nil)
 	if err != nil {
 		return state, types.BlockID{}, err
 	}
@@ -244,13 +245,13 @@ func (app *testApp) Info(req abci.RequestInfo) (resInfo abci.ResponseInfo) {
 	return abci.ResponseInfo{}
 }
 
-func (app *testApp) BeginBlock(req abci.RequestBeginBlock) abci.ResponseBeginBlock {
+func (app *testApp) BeginBlock(context context.Context, req abci.RequestBeginBlock) abci.ResponseBeginBlock {
 	app.CommitVotes = req.LastCommitInfo.Votes
 	app.ByzantineValidators = req.ByzantineValidators
 	return abci.ResponseBeginBlock{}
 }
 
-func (app *testApp) EndBlock(req abci.RequestEndBlock) abci.ResponseEndBlock {
+func (app *testApp) EndBlock(c context.Context, req abci.RequestEndBlock) abci.ResponseEndBlock {
 	return abci.ResponseEndBlock{
 		ValidatorUpdates: app.ValidatorUpdates,
 		ConsensusParamUpdates: &abci.ConsensusParams{
@@ -258,7 +259,7 @@ func (app *testApp) EndBlock(req abci.RequestEndBlock) abci.ResponseEndBlock {
 				AppVersion: 1}}}
 }
 
-func (app *testApp) DeliverTx(req abci.RequestDeliverTx) abci.ResponseDeliverTx {
+func (app *testApp) DeliverTx(c context.Context, req abci.RequestDeliverTx) abci.ResponseDeliverTx {
 	return abci.ResponseDeliverTx{Events: []abci.Event{}}
 }
 
@@ -266,7 +267,7 @@ func (app *testApp) CheckTx(req abci.RequestCheckTx) abci.ResponseCheckTx {
 	return abci.ResponseCheckTx{}
 }
 
-func (app *testApp) Commit() abci.ResponseCommit {
+func (app *testApp) Commit(context.Context) abci.ResponseCommit {
 	return abci.ResponseCommit{RetainHeight: 1}
 }
 

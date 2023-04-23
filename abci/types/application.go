@@ -19,11 +19,11 @@ type Application interface {
 
 	// Consensus Connection
 	InitChain(RequestInitChain) ResponseInitChain // Initialize blockchain w validators/other info from TendermintCore
-	ProcessProposal(RequestProcessProposal) ResponseProcessProposal
-	BeginBlock(RequestBeginBlock) ResponseBeginBlock // Signals the beginning of a block
-	DeliverTx(RequestDeliverTx) ResponseDeliverTx    // Deliver a tx for full processing
-	EndBlock(RequestEndBlock) ResponseEndBlock       // Signals the end of a block, returns changes to the validator set
-	Commit() ResponseCommit                          // Commit the state and return the application Merkle root hash
+	ProcessProposal(context.Context, RequestProcessProposal) ResponseProcessProposal
+	BeginBlock(context.Context, RequestBeginBlock) ResponseBeginBlock // Signals the beginning of a block
+	DeliverTx(context.Context, RequestDeliverTx) ResponseDeliverTx    // Deliver a tx for full processing
+	EndBlock(context.Context, RequestEndBlock) ResponseEndBlock       // Signals the end of a block, returns changes to the validator set
+	Commit(context.Context) ResponseCommit                            // Commit the state and return the application Merkle root hash
 
 	// State Sync Connection
 	ListSnapshots(RequestListSnapshots) ResponseListSnapshots                // List available snapshots
@@ -52,7 +52,7 @@ func (BaseApplication) SetOption(req RequestSetOption) ResponseSetOption {
 	return ResponseSetOption{}
 }
 
-func (BaseApplication) DeliverTx(req RequestDeliverTx) ResponseDeliverTx {
+func (BaseApplication) DeliverTx(c context.Context, req RequestDeliverTx) ResponseDeliverTx {
 	return ResponseDeliverTx{Code: CodeTypeOK}
 }
 
@@ -60,7 +60,7 @@ func (BaseApplication) CheckTx(req RequestCheckTx) ResponseCheckTx {
 	return ResponseCheckTx{Code: CodeTypeOK}
 }
 
-func (BaseApplication) Commit() ResponseCommit {
+func (BaseApplication) Commit(context.Context) ResponseCommit {
 	return ResponseCommit{}
 }
 
@@ -72,15 +72,15 @@ func (BaseApplication) InitChain(req RequestInitChain) ResponseInitChain {
 	return ResponseInitChain{}
 }
 
-func (BaseApplication) ProcessProposal(req RequestProcessProposal) ResponseProcessProposal {
+func (BaseApplication) ProcessProposal(c context.Context, req RequestProcessProposal) ResponseProcessProposal {
 	return ResponseProcessProposal{}
 }
 
-func (BaseApplication) BeginBlock(req RequestBeginBlock) ResponseBeginBlock {
+func (BaseApplication) BeginBlock(c context.Context, req RequestBeginBlock) ResponseBeginBlock {
 	return ResponseBeginBlock{}
 }
 
-func (BaseApplication) EndBlock(req RequestEndBlock) ResponseEndBlock {
+func (BaseApplication) EndBlock(c context.Context, req RequestEndBlock) ResponseEndBlock {
 	return ResponseEndBlock{}
 }
 
@@ -130,7 +130,7 @@ func (app *GRPCApplication) SetOption(ctx context.Context, req *RequestSetOption
 }
 
 func (app *GRPCApplication) DeliverTx(ctx context.Context, req *RequestDeliverTx) (*ResponseDeliverTx, error) {
-	res := app.app.DeliverTx(*req)
+	res := app.app.DeliverTx(nil, *req)
 	return &res, nil
 }
 
@@ -145,7 +145,7 @@ func (app *GRPCApplication) Query(ctx context.Context, req *RequestQuery) (*Resp
 }
 
 func (app *GRPCApplication) Commit(ctx context.Context, req *RequestCommit) (*ResponseCommit, error) {
-	res := app.app.Commit()
+	res := app.app.Commit(nil)
 	return &res, nil
 }
 
@@ -155,17 +155,17 @@ func (app *GRPCApplication) InitChain(ctx context.Context, req *RequestInitChain
 }
 
 func (app *GRPCApplication) ProcessProposal(ctx context.Context, req *RequestProcessProposal) (*ResponseProcessProposal, error) {
-	res := app.app.ProcessProposal(*req)
+	res := app.app.ProcessProposal(nil, *req)
 	return &res, nil
 }
 
 func (app *GRPCApplication) BeginBlock(ctx context.Context, req *RequestBeginBlock) (*ResponseBeginBlock, error) {
-	res := app.app.BeginBlock(*req)
+	res := app.app.BeginBlock(nil, *req)
 	return &res, nil
 }
 
 func (app *GRPCApplication) EndBlock(ctx context.Context, req *RequestEndBlock) (*ResponseEndBlock, error) {
-	res := app.app.EndBlock(*req)
+	res := app.app.EndBlock(nil, *req)
 	return &res, nil
 }
 

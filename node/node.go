@@ -312,15 +312,7 @@ func createAndStartIndexerService(
 	return indexerService, txIndexer, blockIndexer, nil
 }
 
-func doHandshake(
-	stateStore sm.Store,
-	state sm.State,
-	blockStore sm.BlockStore,
-	genDoc *types.GenesisDoc,
-	eventBus types.BlockEventPublisher,
-	proxyApp proxy.AppConns,
-	consensusLogger log.Logger) error {
-
+func doHandshake(stateStore sm.Store, state sm.State, blockStore sm.BlockStore, genDoc *types.GenesisDoc, eventBus types.BlockEventPublisher, proxyApp proxy.AppConns, consensusLogger log.Logger, tp *trace.TracerProvider) error {
 	handshaker := cs.NewHandshaker(stateStore, state, blockStore, genDoc)
 	handshaker.SetLogger(consensusLogger)
 	handshaker.SetEventBus(eventBus)
@@ -690,6 +682,7 @@ func NewNode(config *cfg.Config,
 	if err != nil {
 		return nil, err
 	}
+	tp := trace.NewTracerProvider(tracerProviderOptions...)
 
 	// Create the proxyApp and establish connections to the ABCI app (consensus, mempool, query).
 	proxyApp, err := createAndStartProxyAppConns(clientCreator, logger)
@@ -738,7 +731,7 @@ func NewNode(config *cfg.Config,
 	// and replays any blocks as necessary to sync tendermint with the app.
 	consensusLogger := logger.With("module", "consensus")
 	if !stateSync {
-		if err := doHandshake(stateStore, state, blockStore, genDoc, eventBus, proxyApp, consensusLogger); err != nil {
+		if err := doHandshake(stateStore, state, blockStore, genDoc, eventBus, proxyApp, consensusLogger, tp); err != nil {
 			return nil, err
 		}
 

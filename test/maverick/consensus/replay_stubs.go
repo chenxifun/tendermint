@@ -7,6 +7,7 @@ import (
 	tmstate "github.com/tendermint/tendermint/proto/tendermint/state"
 	"github.com/tendermint/tendermint/proxy"
 	"github.com/tendermint/tendermint/types"
+	"golang.org/x/net/context"
 )
 
 //-----------------------------------------------------------------------------
@@ -71,7 +72,7 @@ type mockProxyApp struct {
 	abciResponses *tmstate.ABCIResponses
 }
 
-func (mock *mockProxyApp) DeliverTx(req abci.RequestDeliverTx) abci.ResponseDeliverTx {
+func (mock *mockProxyApp) DeliverTx(context context.Context, req abci.RequestDeliverTx) abci.ResponseDeliverTx {
 	r := mock.abciResponses.DeliverTxs[mock.txCount]
 	mock.txCount++
 	if r == nil {
@@ -80,11 +81,11 @@ func (mock *mockProxyApp) DeliverTx(req abci.RequestDeliverTx) abci.ResponseDeli
 	return *r
 }
 
-func (mock *mockProxyApp) EndBlock(req abci.RequestEndBlock) abci.ResponseEndBlock {
+func (mock *mockProxyApp) EndBlock(c context.Context, req abci.RequestEndBlock) abci.ResponseEndBlock {
 	mock.txCount = 0
 	return *mock.abciResponses.EndBlock
 }
 
-func (mock *mockProxyApp) Commit() abci.ResponseCommit {
+func (mock *mockProxyApp) Commit(context.Context) abci.ResponseCommit {
 	return abci.ResponseCommit{Data: mock.appHash}
 }

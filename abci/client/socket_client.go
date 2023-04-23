@@ -3,6 +3,7 @@ package abcicli
 import (
 	"bufio"
 	"container/list"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -235,7 +236,7 @@ func (cli *socketClient) SetOptionAsync(req types.RequestSetOption) *ReqRes {
 	return cli.queueRequest(types.ToRequestSetOption(req))
 }
 
-func (cli *socketClient) DeliverTxAsync(req types.RequestDeliverTx) *ReqRes {
+func (cli *socketClient) DeliverTxAsync(ctx context.Context, req types.RequestDeliverTx) *ReqRes {
 	return cli.queueRequest(types.ToRequestDeliverTx(req))
 }
 
@@ -247,7 +248,7 @@ func (cli *socketClient) QueryAsync(req types.RequestQuery) *ReqRes {
 	return cli.queueRequest(types.ToRequestQuery(req))
 }
 
-func (cli *socketClient) CommitAsync() *ReqRes {
+func (cli *socketClient) CommitAsync(context.Context) *ReqRes {
 	return cli.queueRequest(types.ToRequestCommit())
 }
 
@@ -255,15 +256,15 @@ func (cli *socketClient) InitChainAsync(req types.RequestInitChain) *ReqRes {
 	return cli.queueRequest(types.ToRequestInitChain(req))
 }
 
-func (cli *socketClient) ProcessProposalAsync(req types.RequestProcessProposal) *ReqRes {
+func (cli *socketClient) ProcessProposalAsync(ctx context.Context, req types.RequestProcessProposal) *ReqRes {
 	return cli.queueRequest(types.ToRequestProcessProposal(req))
 }
 
-func (cli *socketClient) BeginBlockAsync(req types.RequestBeginBlock) *ReqRes {
+func (cli *socketClient) BeginBlockAsync(ctx context.Context, req types.RequestBeginBlock) *ReqRes {
 	return cli.queueRequest(types.ToRequestBeginBlock(req))
 }
 
-func (cli *socketClient) EndBlockAsync(req types.RequestEndBlock) *ReqRes {
+func (cli *socketClient) EndBlockAsync(ctx context.Context, req types.RequestEndBlock) *ReqRes {
 	return cli.queueRequest(types.ToRequestEndBlock(req))
 }
 
@@ -321,7 +322,7 @@ func (cli *socketClient) SetOptionSync(req types.RequestSetOption) (*types.Respo
 	return reqres.Response.GetSetOption(), cli.Error()
 }
 
-func (cli *socketClient) DeliverTxSync(req types.RequestDeliverTx) (*types.ResponseDeliverTx, error) {
+func (cli *socketClient) DeliverTxSync(ctx context.Context, req types.RequestDeliverTx) (*types.ResponseDeliverTx, error) {
 	reqres := cli.queueRequest(types.ToRequestDeliverTx(req))
 	if err := cli.FlushSync(); err != nil {
 		return nil, err
@@ -348,7 +349,7 @@ func (cli *socketClient) QuerySync(req types.RequestQuery) (*types.ResponseQuery
 	return reqres.Response.GetQuery(), cli.Error()
 }
 
-func (cli *socketClient) CommitSync() (*types.ResponseCommit, error) {
+func (cli *socketClient) CommitSync(context.Context) (*types.ResponseCommit, error) {
 	reqres := cli.queueRequest(types.ToRequestCommit())
 	if err := cli.FlushSync(); err != nil {
 		return nil, err
@@ -366,7 +367,7 @@ func (cli *socketClient) InitChainSync(req types.RequestInitChain) (*types.Respo
 	return reqres.Response.GetInitChain(), cli.Error()
 }
 
-func (cli *socketClient) ProcessProposalSync(req types.RequestProcessProposal) (*types.ResponseProcessProposal, error) {
+func (cli *socketClient) ProcessProposalSync(ctx context.Context, req types.RequestProcessProposal) (*types.ResponseProcessProposal, error) {
 	reqres := cli.queueRequest(types.ToRequestProcessProposal(req))
 	if err := cli.FlushSync(); err != nil {
 		return nil, err
@@ -375,7 +376,7 @@ func (cli *socketClient) ProcessProposalSync(req types.RequestProcessProposal) (
 	return reqres.Response.GetProcessProposal(), cli.Error()
 }
 
-func (cli *socketClient) BeginBlockSync(req types.RequestBeginBlock) (*types.ResponseBeginBlock, error) {
+func (cli *socketClient) BeginBlockSync(ctx context.Context, req types.RequestBeginBlock) (*types.ResponseBeginBlock, error) {
 	reqres := cli.queueRequest(types.ToRequestBeginBlock(req))
 	if err := cli.FlushSync(); err != nil {
 		return nil, err
@@ -384,7 +385,7 @@ func (cli *socketClient) BeginBlockSync(req types.RequestBeginBlock) (*types.Res
 	return reqres.Response.GetBeginBlock(), cli.Error()
 }
 
-func (cli *socketClient) EndBlockSync(req types.RequestEndBlock) (*types.ResponseEndBlock, error) {
+func (cli *socketClient) EndBlockSync(ctx context.Context, req types.RequestEndBlock) (*types.ResponseEndBlock, error) {
 	reqres := cli.queueRequest(types.ToRequestEndBlock(req))
 	if err := cli.FlushSync(); err != nil {
 		return nil, err

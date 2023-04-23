@@ -236,8 +236,8 @@ func TestMempool_KeepInvalidTxsInCache(t *testing.T) {
 		require.NoError(t, err)
 
 		// simulate new block
-		_ = app.DeliverTx(abci.RequestDeliverTx{Tx: a})
-		_ = app.DeliverTx(abci.RequestDeliverTx{Tx: b})
+		_ = app.DeliverTx(nil, abci.RequestDeliverTx{Tx: a})
+		_ = app.DeliverTx(nil, abci.RequestDeliverTx{Tx: b})
 		err = mempool.Update(1, []types.Tx{a, b},
 			[]*abci.ResponseDeliverTx{{Code: abci.CodeTypeOK}, {Code: 2}}, nil, nil)
 		require.NoError(t, err)
@@ -375,7 +375,7 @@ func TestSerialReap(t *testing.T) {
 		for i := start; i < end; i++ {
 			txBytes := make([]byte, 8)
 			binary.BigEndian.PutUint64(txBytes, uint64(i))
-			res, err := appConnCon.DeliverTxSync(abci.RequestDeliverTx{Tx: txBytes})
+			res, err := appConnCon.DeliverTxSync(nil, abci.RequestDeliverTx{Tx: txBytes})
 			if err != nil {
 				t.Errorf("client error committing tx: %v", err)
 			}
@@ -384,7 +384,7 @@ func TestSerialReap(t *testing.T) {
 					res.Code, res.Data, res.Log)
 			}
 		}
-		res, err := appConnCon.CommitSync()
+		res, err := appConnCon.CommitSync(nil)
 		if err != nil {
 			t.Errorf("client error committing: %v", err)
 		}
@@ -578,10 +578,10 @@ func TestMempoolTxsBytes(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	res, err := appConnCon.DeliverTxSync(abci.RequestDeliverTx{Tx: txBytes})
+	res, err := appConnCon.DeliverTxSync(nil, abci.RequestDeliverTx{Tx: txBytes})
 	require.NoError(t, err)
 	require.EqualValues(t, 0, res.Code)
-	res2, err := appConnCon.CommitSync()
+	res2, err := appConnCon.CommitSync(nil)
 	require.NoError(t, err)
 	require.NotEmpty(t, res2.Data)
 

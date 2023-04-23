@@ -1289,7 +1289,7 @@ func (cs *State) enterPrevote(height int64, round int32) {
 }
 
 func (cs *State) defaultDoPrevote(height int64, round int32) {
-	_, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.defaultDoPrevote")
+	spanCtx, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.defaultDoPrevote")
 	span.SetAttributes(attribute.Int("round", int(round)))
 	span.SetAttributes(attribute.Int("height", int(height)))
 	defer span.End()
@@ -1318,7 +1318,7 @@ func (cs *State) defaultDoPrevote(height int64, round int32) {
 		return
 	}
 
-	isAppValid, err := cs.blockExec.ProcessProposal(cs.ProposalBlock, cs.state)
+	isAppValid, err := cs.blockExec.ProcessProposal(spanCtx, cs.ProposalBlock, cs.state)
 	if err != nil {
 		panic(fmt.Sprintf("ProcessProposal: %v", err))
 	}
@@ -1673,13 +1673,7 @@ func (cs *State) finalizeCommit(height int64) {
 
 	// Save to blockStore.
 	if cs.blockStore.Height() < block.Height {
-		_, storeBlockSpan := cs.tracer.Start(spanCtx, "cs.state.finalizeCommit.saveblockstore")
-		defer storeBlockSpan.End()
-		// NOTE: the seenCommit is local justification to commit this block,
-		// but may differ from the LastCommit included in the next block
-		precommits := cs.Votes.Precommits(cs.CommitRound)
-		seenCommit := precommits.MakeCommit()
-		cs.blockStore.SaveBlock(block, blockParts, seenCommit)
+		cs.saveBlockStore(spanCtx, block, blockParts)
 	} else {
 		// Happens during replay if we already saved the block but didn't commit
 		logger.Debug("calling finalizeCommit on already stored block", "height", block.Height)
@@ -1709,7 +1703,6 @@ func (cs *State) finalizeCommit(height int64) {
 			endMsg, err,
 		))
 	}
-	fsyncSpan.End()
 
 	fail.Fail() // XXX
 
@@ -1723,14 +1716,11 @@ func (cs *State) finalizeCommit(height int64) {
 		retainHeight int64
 	)
 
-	stateCopy, retainHeight, err = cs.blockExec.ApplyBlock(
-		stateCopy,
-		types.BlockID{
-			Hash:          block.Hash(),
-			PartSetHeader: blockParts.Header(),
-		},
-		block,
-	)
+	stateCopy, retainHeight, err = cs.blockExec.ApplyBlock(spanCtx, stateCopy, types.BlockID{
+		Hash:          block.Hash(),
+		PartSetHeader: blockParts.Header(),
+	}, block,
+		cs.tracer)
 	if err != nil {
 		logger.Error("failed to apply block", "err", err)
 		return
@@ -1769,6 +1759,16 @@ func (cs *State) finalizeCommit(height int64) {
 	// * cs.Height has been increment to height+1
 	// * cs.Step is now cstypes.RoundStepNewHeight
 	// * cs.StartTime is set to when we will start round0.
+}
+
+func (cs *State) saveBlockStore(spanCtx context.Context, block *types.Block, blockParts *types.PartSet) {
+	_, storeBlockSpan := cs.tracer.Start(spanCtx, "cs.state.finalizeCommit.saveblockstore")
+	defer storeBlockSpan.End()
+	// NOTE: the seenCommit is local justification to commit this block,
+	// but may differ from the LastCommit included in the next block
+	precommits := cs.Votes.Precommits(cs.CommitRound)
+	seenCommit := precommits.MakeCommit()
+	cs.blockStore.SaveBlock(block, blockParts, seenCommit)
 }
 
 func (cs *State) pruneBlocks(retainHeight int64) (uint64, error) {

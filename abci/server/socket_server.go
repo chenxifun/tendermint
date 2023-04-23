@@ -204,13 +204,13 @@ func (s *SocketServer) handleRequest(req *types.Request, responses chan<- *types
 		res := s.app.SetOption(*r.SetOption)
 		responses <- types.ToResponseSetOption(res)
 	case *types.Request_DeliverTx:
-		res := s.app.DeliverTx(*r.DeliverTx)
+		res := s.app.DeliverTx(nil, *r.DeliverTx)
 		responses <- types.ToResponseDeliverTx(res)
 	case *types.Request_CheckTx:
 		res := s.app.CheckTx(*r.CheckTx)
 		responses <- types.ToResponseCheckTx(res)
 	case *types.Request_Commit:
-		res := s.app.Commit()
+		res := s.app.Commit(nil)
 		responses <- types.ToResponseCommit(res)
 	case *types.Request_Query:
 		res := s.app.Query(*r.Query)
@@ -219,10 +219,10 @@ func (s *SocketServer) handleRequest(req *types.Request, responses chan<- *types
 		res := s.app.InitChain(*r.InitChain)
 		responses <- types.ToResponseInitChain(res)
 	case *types.Request_BeginBlock:
-		res := s.app.BeginBlock(*r.BeginBlock)
+		res := s.app.BeginBlock(nil, *r.BeginBlock)
 		responses <- types.ToResponseBeginBlock(res)
 	case *types.Request_EndBlock:
-		res := s.app.EndBlock(*r.EndBlock)
+		res := s.app.EndBlock(nil, *r.EndBlock)
 		responses <- types.ToResponseEndBlock(res)
 	case *types.Request_ListSnapshots:
 		res := s.app.ListSnapshots(*r.ListSnapshots)

@@ -1,6 +1,7 @@
 package abcicli
 
 import (
+	context2 "context"
 	"fmt"
 	"net"
 	"sync"
@@ -203,7 +204,7 @@ func (cli *grpcClient) SetOptionAsync(params types.RequestSetOption) *ReqRes {
 	return cli.finishAsyncCall(req, &types.Response{Value: &types.Response_SetOption{SetOption: res}})
 }
 
-func (cli *grpcClient) DeliverTxAsync(params types.RequestDeliverTx) *ReqRes {
+func (cli *grpcClient) DeliverTxAsync(ctx context2.Context, params types.RequestDeliverTx) *ReqRes {
 	req := types.ToRequestDeliverTx(params)
 	res, err := cli.client.DeliverTx(context.Background(), req.GetDeliverTx(), grpc.WaitForReady(true))
 	if err != nil {
@@ -230,7 +231,7 @@ func (cli *grpcClient) QueryAsync(params types.RequestQuery) *ReqRes {
 	return cli.finishAsyncCall(req, &types.Response{Value: &types.Response_Query{Query: res}})
 }
 
-func (cli *grpcClient) CommitAsync() *ReqRes {
+func (cli *grpcClient) CommitAsync(context2.Context) *ReqRes {
 	req := types.ToRequestCommit()
 	res, err := cli.client.Commit(context.Background(), req.GetCommit(), grpc.WaitForReady(true))
 	if err != nil {
@@ -248,7 +249,7 @@ func (cli *grpcClient) InitChainAsync(params types.RequestInitChain) *ReqRes {
 	return cli.finishAsyncCall(req, &types.Response{Value: &types.Response_InitChain{InitChain: res}})
 }
 
-func (cli *grpcClient) ProcessProposalAsync(params types.RequestProcessProposal) *ReqRes {
+func (cli *grpcClient) ProcessProposalAsync(ctx context2.Context, params types.RequestProcessProposal) *ReqRes {
 	req := types.ToRequestProcessProposal(params)
 	res, err := cli.client.ProcessProposal(context.Background(), req.GetProcessProposal(), grpc.WaitForReady(true))
 	if err != nil {
@@ -257,7 +258,7 @@ func (cli *grpcClient) ProcessProposalAsync(params types.RequestProcessProposal)
 	return cli.finishAsyncCall(req, &types.Response{Value: &types.Response_ProcessProposal{ProcessProposal: res}})
 }
 
-func (cli *grpcClient) BeginBlockAsync(params types.RequestBeginBlock) *ReqRes {
+func (cli *grpcClient) BeginBlockAsync(ctx context2.Context, params types.RequestBeginBlock) *ReqRes {
 	req := types.ToRequestBeginBlock(params)
 	res, err := cli.client.BeginBlock(context.Background(), req.GetBeginBlock(), grpc.WaitForReady(true))
 	if err != nil {
@@ -266,7 +267,7 @@ func (cli *grpcClient) BeginBlockAsync(params types.RequestBeginBlock) *ReqRes {
 	return cli.finishAsyncCall(req, &types.Response{Value: &types.Response_BeginBlock{BeginBlock: res}})
 }
 
-func (cli *grpcClient) EndBlockAsync(params types.RequestEndBlock) *ReqRes {
+func (cli *grpcClient) EndBlockAsync(ctx context2.Context, params types.RequestEndBlock) *ReqRes {
 	req := types.ToRequestEndBlock(params)
 	res, err := cli.client.EndBlock(context.Background(), req.GetEndBlock(), grpc.WaitForReady(true))
 	if err != nil {
@@ -370,8 +371,8 @@ func (cli *grpcClient) SetOptionSync(req types.RequestSetOption) (*types.Respons
 	return reqres.Response.GetSetOption(), cli.Error()
 }
 
-func (cli *grpcClient) DeliverTxSync(params types.RequestDeliverTx) (*types.ResponseDeliverTx, error) {
-	reqres := cli.DeliverTxAsync(params)
+func (cli *grpcClient) DeliverTxSync(ctx context2.Context, params types.RequestDeliverTx) (*types.ResponseDeliverTx, error) {
+	reqres := cli.DeliverTxAsync(nil, params)
 	return cli.finishSyncCall(reqres).GetDeliverTx(), cli.Error()
 }
 
@@ -385,8 +386,8 @@ func (cli *grpcClient) QuerySync(req types.RequestQuery) (*types.ResponseQuery, 
 	return cli.finishSyncCall(reqres).GetQuery(), cli.Error()
 }
 
-func (cli *grpcClient) CommitSync() (*types.ResponseCommit, error) {
-	reqres := cli.CommitAsync()
+func (cli *grpcClient) CommitSync(context2.Context) (*types.ResponseCommit, error) {
+	reqres := cli.CommitAsync(nil)
 	return cli.finishSyncCall(reqres).GetCommit(), cli.Error()
 }
 
@@ -395,18 +396,18 @@ func (cli *grpcClient) InitChainSync(params types.RequestInitChain) (*types.Resp
 	return cli.finishSyncCall(reqres).GetInitChain(), cli.Error()
 }
 
-func (cli *grpcClient) ProcessProposalSync(params types.RequestProcessProposal) (*types.ResponseProcessProposal, error) {
-	reqres := cli.ProcessProposalAsync(params)
+func (cli *grpcClient) ProcessProposalSync(ctx context2.Context, params types.RequestProcessProposal) (*types.ResponseProcessProposal, error) {
+	reqres := cli.ProcessProposalAsync(nil, params)
 	return cli.finishSyncCall(reqres).GetProcessProposal(), cli.Error()
 }
 
-func (cli *grpcClient) BeginBlockSync(params types.RequestBeginBlock) (*types.ResponseBeginBlock, error) {
-	reqres := cli.BeginBlockAsync(params)
+func (cli *grpcClient) BeginBlockSync(ctx context2.Context, params types.RequestBeginBlock) (*types.ResponseBeginBlock, error) {
+	reqres := cli.BeginBlockAsync(nil, params)
 	return cli.finishSyncCall(reqres).GetBeginBlock(), cli.Error()
 }
 
-func (cli *grpcClient) EndBlockSync(params types.RequestEndBlock) (*types.ResponseEndBlock, error) {
-	reqres := cli.EndBlockAsync(params)
+func (cli *grpcClient) EndBlockSync(ctx context2.Context, params types.RequestEndBlock) (*types.ResponseEndBlock, error) {
+	reqres := cli.EndBlockAsync(nil, params)
 	return cli.finishSyncCall(reqres).GetEndBlock(), cli.Error()
 }
 
