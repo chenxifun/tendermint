@@ -155,6 +155,9 @@ func (blockExec *BlockExecutor) ApplyBlock(ctx context.Context, state State, blo
 		ctx = spanCtx
 		defer span.End()
 	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
 
 	if err := validateBlock(state, block); err != nil {
 		return state, 0, ErrInvalidBlock(err)
@@ -284,6 +287,9 @@ func execBlockOnProxyApp(ctx context.Context, logger log.Logger, proxyAppConn pr
 		spanCtx, span := tracer.Start(ctx, "cs.state.execBlockOnProxyApp")
 		ctx = spanCtx
 		defer span.End()
+	}
+	if ctx == nil {
+		ctx = context.Background()
 	}
 	var validTxs, invalidTxs = 0, 0
 
