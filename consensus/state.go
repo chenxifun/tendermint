@@ -1676,8 +1676,10 @@ func (cs *State) finalizeCommit(height int64, ctx context.Context) {
 
 	// Save to blockStore.
 	if cs.blockStore.Height() < block.Height {
-		_, storeBlockSpan := cs.tracer.Start(ctx, "cs.state.finalizeCommit.saveblockstore")
-		defer storeBlockSpan.End()
+		if ctx != nil {
+			_, storeBlockSpan := cs.tracer.Start(ctx, "cs.state.finalizeCommit.saveblockstore")
+			defer storeBlockSpan.End()
+		}
 		// NOTE: the seenCommit is local justification to commit this block,
 		// but may differ from the LastCommit included in the next block
 		precommits := cs.Votes.Precommits(cs.CommitRound)
