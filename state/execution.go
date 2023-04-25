@@ -1,8 +1,10 @@
 package state
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	otrace "go.opentelemetry.io/otel/trace"
 	"time"
 
 	abci "github.com/tendermint/tendermint/abci/types"
@@ -113,7 +115,11 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 func (blockExec *BlockExecutor) ProcessProposal(
 	block *types.Block,
 	state State,
+	tracer otrace.Tracer,
+	ctx context.Context,
 ) (bool, error) {
+	_, span := tracer.Start(ctx, "tendermint.state.ProcessProposal")
+	defer span.End()
 	resp, err := blockExec.proxyApp.ProcessProposalSync(abci.RequestProcessProposal{
 		ChainId:            block.Header.ChainID,
 		Hash:               block.Header.Hash(),
@@ -151,9 +157,15 @@ func (blockExec *BlockExecutor) ValidateBlock(state State, block *types.Block) e
 // from outside this package to process and commit an entire block.
 // It takes a blockID to avoid recomputing the parts hash.
 func (blockExec *BlockExecutor) ApplyBlock(
-	state State, blockID types.BlockID, block *types.Block,
+	state State, blockID types.BlockID, block *types.Block, tracer otrace.Tracer,
+	ctx context.Context,
 ) (State, int64, error) {
-
+	var spanCtx2 context.Context
+	if tracer != nil && ctx != nil {
+		spanCtx, span := tracer.Start(ctx, "tendermint.state.ApplyBlock")
+		spanCtx2 = spanCtx
+		defer span.End()
+	}
 	if err := validateBlock(state, block); err != nil {
 		return state, 0, ErrInvalidBlock(err)
 	}
@@ -199,7 +211,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	}
 
 	// Lock mempool, commit app state, update mempoool.
-	appHash, retainHeight, err := blockExec.Commit(state, block, abciResponses.DeliverTxs)
+	appHash, retainHeight, err := blockExec.Commit(state, block, abciResponses.DeliverTxs, tracer, spanCtx2)
 	if err != nil {
 		return state, 0, fmt.Errorf("commit failed for application: %v", err)
 	}
@@ -234,10 +246,13 @@ func (blockExec *BlockExecutor) Commit(
 	state State,
 	block *types.Block,
 	deliverTxResponses []*abci.ResponseDeliverTx,
+	tracer otrace.Tracer,
+	ctx context.Context,
 ) ([]byte, int64, error) {
 	blockExec.mempool.Lock()
 	defer blockExec.mempool.Unlock()
-
+	_, span := tracer.Start(ctx, "tendermint.state.Commit")
+	defer span.End()
 	// while mempool is Locked, flush to ensure all async requests have completed
 	// in the ABCI app before Commit.
 	err := blockExec.mempool.FlushAppConn()

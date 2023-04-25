@@ -839,16 +839,10 @@ func (cs *State) handleMsg(mi msgInfo) {
 	case *ProposalMessage:
 		// will not cause transition.
 		// once proposal is set, we can receive block parts
-		_, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.handleProposalMsg")
-		span.SetAttributes(attribute.Int("round", int(msg.Proposal.Round)))
-		defer span.End()
 		err = cs.setProposal(msg.Proposal)
 
 	case *BlockPartMessage:
 		// if the proposal is complete, we'll enterPrevote or tryFinalizeCommit
-		_, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.handleBlockPartMsg")
-		span.SetAttributes(attribute.Int("round", int(msg.Round)))
-		defer span.End()
 		added, err = cs.addProposalBlockPart(msg, peerID)
 		if added {
 			cs.statsMsgQueue <- mi
@@ -996,10 +990,6 @@ func (cs *State) enterNewRound(height int64, round int32) {
 		cs.tracingCtx, cs.heightSpan = cs.tracer.Start(cs.ctx, "cs.state.Height")
 		cs.heightSpan.SetAttributes(attribute.Int64("height", height))
 	}
-	_, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.enterNewRound")
-	span.SetAttributes(attribute.Int("round", int(round)))
-	span.SetAttributes(attribute.Int("height", int(height)))
-	defer span.End()
 
 	logger := cs.Logger.With("height", height, "round", round)
 
@@ -1010,6 +1000,10 @@ func (cs *State) enterNewRound(height int64, round int32) {
 		)
 		return
 	}
+	_, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.enterNewRound")
+	span.SetAttributes(attribute.Int("round", int(round)))
+	span.SetAttributes(attribute.Int("height", int(height)))
+	defer span.End()
 
 	if now := tmtime.Now(); cs.StartTime.After(now) {
 		logger.Debug("need to set a buffer and log message here for sanity", "start_time", cs.StartTime, "now", now)
@@ -1289,7 +1283,7 @@ func (cs *State) enterPrevote(height int64, round int32) {
 }
 
 func (cs *State) defaultDoPrevote(height int64, round int32) {
-	_, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.defaultDoPrevote")
+	tracerCtx, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.defaultDoPrevote")
 	span.SetAttributes(attribute.Int("round", int(round)))
 	span.SetAttributes(attribute.Int("height", int(height)))
 	defer span.End()
@@ -1318,7 +1312,7 @@ func (cs *State) defaultDoPrevote(height int64, round int32) {
 		return
 	}
 
-	isAppValid, err := cs.blockExec.ProcessProposal(cs.ProposalBlock, cs.state)
+	isAppValid, err := cs.blockExec.ProcessProposal(cs.ProposalBlock, cs.state, cs.tracer, tracerCtx)
 	if err != nil {
 		panic(fmt.Sprintf("ProcessProposal: %v", err))
 	}
@@ -1379,10 +1373,6 @@ func (cs *State) enterPrevoteWait(height int64, round int32) {
 // else, unlock an existing lock and precommit nil if +2/3 of prevotes were nil,
 // else, precommit nil otherwise.
 func (cs *State) enterPrecommit(height int64, round int32) {
-	_, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.enterPrecommit")
-	span.SetAttributes(attribute.Int("round", int(round)))
-	span.SetAttributes(attribute.Int("height", int(height)))
-	defer span.End()
 	logger := cs.Logger.With("height", height, "round", round)
 
 	if cs.Height != height || round < cs.Round || (cs.Round == round && cstypes.RoundStepPrecommit <= cs.Step) {
@@ -1505,6 +1495,10 @@ func (cs *State) enterPrecommit(height int64, round int32) {
 
 // Enter: any +2/3 precommits for next round.
 func (cs *State) enterPrecommitWait(height int64, round int32) {
+	_, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.enterPrecommitWait")
+	span.SetAttributes(attribute.Int("round", int(round)))
+	span.SetAttributes(attribute.Int("height", int(height)))
+	defer span.End()
 	logger := cs.Logger.With("height", height, "round", round)
 
 	if cs.Height != height || round < cs.Round || (cs.Round == round && cs.TriggeredTimeoutPrecommit) {
@@ -1537,7 +1531,7 @@ func (cs *State) enterPrecommitWait(height int64, round int32) {
 
 // Enter: +2/3 precommits for block
 func (cs *State) enterCommit(height int64, commitRound int32) {
-	_, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.enterCommit")
+	spanCtx, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.enterCommit")
 	span.SetAttributes(attribute.Int("round", int(commitRound)))
 	span.SetAttributes(attribute.Int("height", int(height)))
 	defer span.End()
@@ -1562,7 +1556,7 @@ func (cs *State) enterCommit(height int64, commitRound int32) {
 		cs.newStep()
 
 		// Maybe finalize immediately.
-		cs.tryFinalizeCommit(height)
+		cs.tryFinalizeCommit(height, spanCtx)
 	}()
 
 	blockID, ok := cs.Votes.Precommits(commitRound).TwoThirdsMajority()
@@ -1603,8 +1597,14 @@ func (cs *State) enterCommit(height int64, commitRound int32) {
 }
 
 // If we have the block AND +2/3 commits for it, finalize.
-func (cs *State) tryFinalizeCommit(height int64) {
+func (cs *State) tryFinalizeCommit(height int64, ctx context.Context) {
 	logger := cs.Logger.With("height", height)
+	if ctx != nil {
+		panCtx, span := cs.tracer.Start(ctx, "cs.state.tryFinalizeCommit")
+		span.SetAttributes(attribute.Int("height", int(height)))
+		ctx = panCtx
+		defer span.End()
+	}
 
 	if cs.Height != height {
 		panic(fmt.Sprintf("tryFinalizeCommit() cs.Height: %v vs height: %v", cs.Height, height))
@@ -1627,12 +1627,12 @@ func (cs *State) tryFinalizeCommit(height int64) {
 		return
 	}
 
-	cs.finalizeCommit(height)
+	cs.finalizeCommit(height, ctx)
 }
 
 // Increment height and goto cstypes.RoundStepNewHeight
-func (cs *State) finalizeCommit(height int64) {
-	spanCtx, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.finalizeCommit")
+func (cs *State) finalizeCommit(height int64, ctx context.Context) {
+	spanCtx, span := cs.tracer.Start(ctx, "cs.state.finalizeCommit")
 	defer span.End()
 	logger := cs.Logger.With("height", height)
 
@@ -1729,7 +1729,7 @@ func (cs *State) finalizeCommit(height int64) {
 			Hash:          block.Hash(),
 			PartSetHeader: blockParts.Header(),
 		},
-		block,
+		block, cs.tracer, spanCtx,
 	)
 	if err != nil {
 		logger.Error("failed to apply block", "err", err)
@@ -2007,7 +2007,7 @@ func (cs *State) addProposalBlockPart(msg *BlockPartMessage, peerID p2p.ID) (add
 			}
 		} else if cs.Step == cstypes.RoundStepCommit {
 			// If we're waiting on the proposal block...
-			cs.tryFinalizeCommit(height)
+			cs.tryFinalizeCommit(height, nil)
 		}
 
 		return added, nil
