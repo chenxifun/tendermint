@@ -1704,15 +1704,17 @@ func (cs *State) finalizeCommit(height int64, ctx context.Context) {
 	// successfully call ApplyBlock (ie. later here, or in Handshake after
 	// restart).
 	endMsg := EndHeightMessage{height}
-	_, fsyncSpan := cs.tracer.Start(ctx, "cs.state.finalizeCommit.fsync")
-	defer fsyncSpan.End()
+	if ctx != nil {
+		_, fsyncSpan := cs.tracer.Start(ctx, "cs.state.finalizeCommit.fsync")
+		defer fsyncSpan.End()
+	}
+
 	if err := cs.wal.WriteSync(endMsg); err != nil { // NOTE: fsync
 		panic(fmt.Sprintf(
 			"failed to write %v msg to consensus WAL due to %v; check your file system and restart the node",
 			endMsg, err,
 		))
 	}
-	fsyncSpan.End()
 
 	fail.Fail() // XXX
 
