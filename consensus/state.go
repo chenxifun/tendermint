@@ -1632,8 +1632,11 @@ func (cs *State) tryFinalizeCommit(height int64, ctx context.Context) {
 
 // Increment height and goto cstypes.RoundStepNewHeight
 func (cs *State) finalizeCommit(height int64, ctx context.Context) {
-	spanCtx, span := cs.tracer.Start(ctx, "cs.state.finalizeCommit")
-	defer span.End()
+	if ctx != nil {
+		spanCtx, span := cs.tracer.Start(ctx, "cs.state.finalizeCommit")
+		ctx = spanCtx
+		defer span.End()
+	}
 	logger := cs.Logger.With("height", height)
 
 	if cs.Height != height || cs.Step != cstypes.RoundStepCommit {
@@ -1673,7 +1676,7 @@ func (cs *State) finalizeCommit(height int64, ctx context.Context) {
 
 	// Save to blockStore.
 	if cs.blockStore.Height() < block.Height {
-		_, storeBlockSpan := cs.tracer.Start(spanCtx, "cs.state.finalizeCommit.saveblockstore")
+		_, storeBlockSpan := cs.tracer.Start(ctx, "cs.state.finalizeCommit.saveblockstore")
 		defer storeBlockSpan.End()
 		// NOTE: the seenCommit is local justification to commit this block,
 		// but may differ from the LastCommit included in the next block
@@ -1701,7 +1704,7 @@ func (cs *State) finalizeCommit(height int64, ctx context.Context) {
 	// successfully call ApplyBlock (ie. later here, or in Handshake after
 	// restart).
 	endMsg := EndHeightMessage{height}
-	_, fsyncSpan := cs.tracer.Start(spanCtx, "cs.state.finalizeCommit.fsync")
+	_, fsyncSpan := cs.tracer.Start(ctx, "cs.state.finalizeCommit.fsync")
 	defer fsyncSpan.End()
 	if err := cs.wal.WriteSync(endMsg); err != nil { // NOTE: fsync
 		panic(fmt.Sprintf(
@@ -1729,7 +1732,7 @@ func (cs *State) finalizeCommit(height int64, ctx context.Context) {
 			Hash:          block.Hash(),
 			PartSetHeader: blockParts.Header(),
 		},
-		block, cs.tracer, spanCtx,
+		block, cs.tracer, ctx,
 	)
 	if err != nil {
 		logger.Error("failed to apply block", "err", err)

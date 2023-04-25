@@ -251,8 +251,10 @@ func (blockExec *BlockExecutor) Commit(
 ) ([]byte, int64, error) {
 	blockExec.mempool.Lock()
 	defer blockExec.mempool.Unlock()
-	_, span := tracer.Start(ctx, "tendermint.state.Commit")
-	defer span.End()
+	if tracer != nil && ctx != nil {
+		_, span := tracer.Start(ctx, "tendermint.state.Commit")
+		defer span.End()
+	}
 	// while mempool is Locked, flush to ensure all async requests have completed
 	// in the ABCI app before Commit.
 	err := blockExec.mempool.FlushAppConn()
