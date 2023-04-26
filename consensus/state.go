@@ -54,10 +54,11 @@ type msgInfo struct {
 
 // internally generated messages which may update the state
 type timeoutInfo struct {
-	Duration time.Duration         `json:"duration"`
-	Height   int64                 `json:"height"`
-	Round    int32                 `json:"round"`
-	Step     cstypes.RoundStepType `json:"step"`
+	Duration  time.Duration         `json:"duration"`
+	Height    int64                 `json:"height"`
+	Round     int32                 `json:"round"`
+	Step      cstypes.RoundStepType `json:"step"`
+	HeightCtx context.Context
 }
 
 func (ti *timeoutInfo) String() string {
@@ -150,6 +151,8 @@ type State struct {
 	tracer                otrace.Tracer
 	tracerProviderOptions []trace.TracerProviderOption
 	heightSpan            otrace.Span
+	blockPartSpan         otrace.Span
+	blockPartCtx          context.Context
 	heightBeingTraced     int64
 	tracingCtx            context.Context
 }
@@ -169,6 +172,9 @@ func NewState(
 	ctx context.Context,
 	options ...StateOption,
 ) *State {
+	tp := trace.NewTracerProvider(traceProviderOps...)
+	tracer := tp.Tracer("tm-consensus-state")
+
 	cs := &State{
 		config:           config,
 		blockExec:        blockExec,
@@ -176,7 +182,7 @@ func NewState(
 		txNotifier:       txNotifier,
 		peerMsgQueue:     make(chan msgInfo, msgQueueSize),
 		internalMsgQueue: make(chan msgInfo, msgQueueSize),
-		timeoutTicker:    NewTimeoutTicker(),
+		timeoutTicker:    NewTimeoutTicker(tracer),
 		statsMsgQueue:    make(chan msgInfo, msgQueueSize),
 		done:             make(chan struct{}),
 		doWALCatchup:     true,
@@ -186,6 +192,9 @@ func NewState(
 		metrics:          NopMetrics(),
 		ctx:              ctx,
 	}
+
+	cs.tracer = tracer
+	cs.tracerProviderOptions = traceProviderOps
 
 	// set function defaults (may be overwritten before calling Start)
 	cs.decideProposal = cs.defaultDecideProposal
@@ -205,9 +214,6 @@ func NewState(
 	for _, option := range options {
 		option(cs)
 	}
-	tp := trace.NewTracerProvider(traceProviderOps...)
-	cs.tracer = tp.Tracer("tm-consensus-state")
-	cs.tracerProviderOptions = traceProviderOps
 
 	return cs
 }
@@ -556,12 +562,18 @@ func (cs *State) updateRoundStep(round int32, step cstypes.RoundStepType) {
 func (cs *State) scheduleRound0(rs *cstypes.RoundState) {
 	// cs.Logger.Info("scheduleRound0", "now", tmtime.Now(), "startTime", cs.StartTime)
 	sleepDuration := rs.StartTime.Sub(tmtime.Now())
+	if cs.heightSpan != nil {
+		cs.heightSpan.End()
+	}
+	cs.heightBeingTraced = rs.Height
+	cs.tracingCtx, cs.heightSpan = cs.tracer.Start(cs.ctx, "cs.state.Height")
+	cs.heightSpan.SetAttributes(attribute.Int64("height", rs.Height))
 	cs.scheduleTimeout(sleepDuration, rs.Height, 0, cstypes.RoundStepNewHeight)
 }
 
 // Attempt to schedule a timeout (by sending timeoutInfo on the tickChan)
 func (cs *State) scheduleTimeout(duration time.Duration, height int64, round int32, step cstypes.RoundStepType) {
-	cs.timeoutTicker.ScheduleTimeout(timeoutInfo{duration, height, round, step})
+	cs.timeoutTicker.ScheduleTimeout(timeoutInfo{duration, height, round, step, cs.getTracingCtx()})
 }
 
 // send a msg into the receiveRoutine regarding our own proposal, block part, or vote
@@ -839,16 +851,11 @@ func (cs *State) handleMsg(mi msgInfo) {
 	case *ProposalMessage:
 		// will not cause transition.
 		// once proposal is set, we can receive block parts
-		_, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.handleProposalMsg")
-		span.SetAttributes(attribute.Int("round", int(msg.Proposal.Round)))
-		defer span.End()
+
 		err = cs.setProposal(msg.Proposal)
 
 	case *BlockPartMessage:
 		// if the proposal is complete, we'll enterPrevote or tryFinalizeCommit
-		_, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.handleBlockPartMsg")
-		span.SetAttributes(attribute.Int("round", int(msg.Round)))
-		defer span.End()
 		added, err = cs.addProposalBlockPart(msg, peerID)
 		if added {
 			cs.statsMsgQueue <- mi
@@ -988,14 +995,6 @@ func (cs *State) handleTxsAvailable() {
 // Enter: +2/3 prevotes any or +2/3 precommits for block or any from (height, round)
 // NOTE: cs.StartTime was already set for height.
 func (cs *State) enterNewRound(height int64, round int32) {
-	if height > cs.heightBeingTraced {
-		if cs.heightSpan != nil {
-			cs.heightSpan.End()
-		}
-		cs.heightBeingTraced = height
-		cs.tracingCtx, cs.heightSpan = cs.tracer.Start(cs.ctx, "cs.state.Height")
-		cs.heightSpan.SetAttributes(attribute.Int64("height", height))
-	}
 	_, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.enterNewRound")
 	span.SetAttributes(attribute.Int("round", int(round)))
 	span.SetAttributes(attribute.Int("height", int(height)))
@@ -1152,7 +1151,7 @@ func (cs *State) isProposer(address []byte) bool {
 
 func (cs *State) defaultDecideProposal(ctx context.Context, height int64, round int32) {
 
-	_, span := cs.tracer.Start(ctx, "cs.state.decideProposal")
+	spanCtx, span := cs.tracer.Start(ctx, "cs.state.decideProposal")
 	span.SetAttributes(attribute.Int("round", int(round)))
 	defer span.End()
 
@@ -1165,7 +1164,7 @@ func (cs *State) defaultDecideProposal(ctx context.Context, height int64, round 
 		block, blockParts = cs.ValidBlock, cs.ValidBlockParts
 	} else {
 		// Create a new proposal block from state/txs from the mempool.
-		block, blockParts = cs.createProposalBlock()
+		block, blockParts = cs.createProposalBlock(spanCtx)
 		if block == nil {
 			return
 		}
@@ -1221,7 +1220,9 @@ func (cs *State) isProposalComplete() bool {
 //
 // NOTE: keep it side-effect free for clarity.
 // CONTRACT: cs.privValidator is not nil.
-func (cs *State) createProposalBlock() (block *types.Block, blockParts *types.PartSet) {
+func (cs *State) createProposalBlock(ctx context.Context) (block *types.Block, blockParts *types.PartSet) {
+	_, span := cs.tracer.Start(ctx, "cs.state.createProposalBlock")
+	defer span.End(otrace.WithStackTrace(true))
 	if cs.privValidator == nil {
 		panic("entered createProposalBlock with privValidator being nil")
 	}
@@ -1878,6 +1879,10 @@ func (cs *State) recordMetrics(height int64, block *types.Block) {
 //-----------------------------------------------------------------------------
 
 func (cs *State) defaultSetProposal(proposal *types.Proposal) error {
+	_, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.handleProposalMsg")
+	span.SetAttributes(attribute.Int("height", int(proposal.Height)))
+	span.SetAttributes(attribute.Int("round", int(proposal.Round)))
+	defer span.End()
 	// Already have one
 	// TODO: possibly catch double proposals
 	if cs.Proposal != nil {
@@ -1942,6 +1947,15 @@ func (cs *State) addProposalBlockPart(msg *BlockPartMessage, peerID p2p.ID) (add
 		return false, nil
 	}
 
+	if cs.ProposalBlockParts.Count() == 0 {
+		if cs.blockPartSpan != nil {
+			cs.blockPartSpan.End()
+		}
+		cs.blockPartCtx, cs.blockPartSpan = cs.tracer.Start(cs.getTracingCtx(), "cs.state.collectBlockPart")
+	}
+	_, span := cs.tracer.Start(cs.blockPartCtx, "cs.state.addProposalBlockPart")
+	defer span.End()
+
 	added, err = cs.ProposalBlockParts.AddPart(part)
 	if err != nil {
 		return added, err
@@ -1952,6 +1966,10 @@ func (cs *State) addProposalBlockPart(msg *BlockPartMessage, peerID p2p.ID) (add
 		)
 	}
 	if added && cs.ProposalBlockParts.IsComplete() {
+		span.End()
+		cs.blockPartSpan.End()
+		cs.blockPartSpan, cs.blockPartCtx = nil, nil
+
 		bz, err := ioutil.ReadAll(cs.ProposalBlockParts.GetReader())
 		if err != nil {
 			return added, err
@@ -2018,6 +2036,15 @@ func (cs *State) addProposalBlockPart(msg *BlockPartMessage, peerID p2p.ID) (add
 
 // Attempt to add the vote. if its a duplicate signature, dupeout the validator
 func (cs *State) tryAddVote(vote *types.Vote, peerID p2p.ID) (bool, error) {
+	_, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.tryAddVote")
+	span.SetAttributes(
+		attribute.String("voteType", vote.Type.String()),
+		attribute.Int("height", int(cs.Height)),
+		attribute.Int("voteHeight", int(vote.Height)),
+		attribute.String("validator", vote.ValidatorAddress.String()),
+		attribute.Int("validatorIndex", int(vote.ValidatorIndex)),
+	)
+	defer span.End()
 	added, err := cs.addVote(vote, peerID)
 	if err != nil {
 		// If the vote height is off, we'll just ignore it,
