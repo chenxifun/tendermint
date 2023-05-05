@@ -936,21 +936,21 @@ func (cs *State) handleTimeout(ti timeoutInfo, rs cstypes.RoundState) {
 			cs.Logger.Error("failed publishing timeout propose", "err", err)
 		}
 
-		cs.enterPrevote(ti.Height, ti.Round)
+		cs.enterPrevote(ti.Height, ti.Round, nil)
 
 	case cstypes.RoundStepPrevoteWait:
 		if err := cs.eventBus.PublishEventTimeoutWait(cs.RoundStateEvent()); err != nil {
 			cs.Logger.Error("failed publishing timeout wait", "err", err)
 		}
 
-		cs.enterPrecommit(ti.Height, ti.Round)
+		cs.enterPrecommit(ti.Height, ti.Round, nil)
 
 	case cstypes.RoundStepPrecommitWait:
 		if err := cs.eventBus.PublishEventTimeoutWait(cs.RoundStateEvent()); err != nil {
 			cs.Logger.Error("failed publishing timeout wait", "err", err)
 		}
 
-		cs.enterPrecommit(ti.Height, ti.Round)
+		cs.enterPrecommit(ti.Height, ti.Round, nil)
 		cs.enterNewRound(ti.Height, ti.Round+1)
 
 	default:
@@ -995,10 +995,14 @@ func (cs *State) handleTxsAvailable() {
 // Enter: +2/3 prevotes any or +2/3 precommits for block or any from (height, round)
 // NOTE: cs.StartTime was already set for height.
 func (cs *State) enterNewRound(height int64, round int32) {
-	_, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.enterNewRound")
-	span.SetAttributes(attribute.Int("round", int(round)))
-	span.SetAttributes(attribute.Int("height", int(height)))
-	defer span.End()
+	if height > cs.heightBeingTraced {
+		if cs.heightSpan != nil {
+			cs.heightSpan.End()
+		}
+		cs.heightBeingTraced = height
+		cs.tracingCtx, cs.heightSpan = cs.tracer.Start(cs.ctx, "cs.state.Height")
+		cs.heightSpan.SetAttributes(attribute.Int64("height", height))
+	}
 
 	logger := cs.Logger.With("height", height, "round", round)
 
@@ -1009,6 +1013,10 @@ func (cs *State) enterNewRound(height int64, round int32) {
 		)
 		return
 	}
+	_, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.enterNewRound")
+	span.SetAttributes(attribute.Int("round", int(round)))
+	span.SetAttributes(attribute.Int("height", int(height)))
+	defer span.End()
 
 	if now := tmtime.Now(); cs.StartTime.After(now) {
 		logger.Debug("need to set a buffer and log message here for sanity", "start_time", cs.StartTime, "now", now)
@@ -1107,7 +1115,7 @@ func (cs *State) enterPropose(height int64, round int32) {
 		// else, we'll enterPrevote when the rest of the proposal is received (in AddProposalBlockPart),
 		// or else after timeoutPropose
 		if cs.isProposalComplete() {
-			cs.enterPrevote(height, cs.Round)
+			cs.enterPrevote(height, cs.Round, spanCtx)
 		}
 	}()
 
@@ -1259,8 +1267,11 @@ func (cs *State) createProposalBlock(ctx context.Context) (block *types.Block, b
 // Enter: proposal block and POL is ready.
 // Prevote for LockedBlock if we're locked, or ProposalBlock if valid.
 // Otherwise vote nil.
-func (cs *State) enterPrevote(height int64, round int32) {
-	_, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.enterPrevote")
+func (cs *State) enterPrevote(height int64, round int32, ctx context.Context) {
+	if ctx == nil {
+		ctx = cs.getTracingCtx()
+	}
+	_, span := cs.tracer.Start(ctx, "cs.state.enterPrevote")
 	span.SetAttributes(attribute.Int("round", int(round)))
 	span.SetAttributes(attribute.Int("height", int(height)))
 	defer span.End()
@@ -1379,8 +1390,11 @@ func (cs *State) enterPrevoteWait(height int64, round int32) {
 // Lock & precommit the ProposalBlock if we have enough prevotes for it (a POL in this round)
 // else, unlock an existing lock and precommit nil if +2/3 of prevotes were nil,
 // else, precommit nil otherwise.
-func (cs *State) enterPrecommit(height int64, round int32) {
-	_, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.enterPrecommit")
+func (cs *State) enterPrecommit(height int64, round int32, ctx context.Context) {
+	if ctx == nil {
+		ctx = cs.getTracingCtx()
+	}
+	_, span := cs.tracer.Start(ctx, "cs.state.enterPrecommit")
 	span.SetAttributes(attribute.Int("round", int(round)))
 	span.SetAttributes(attribute.Int("height", int(height)))
 	defer span.End()
@@ -1537,8 +1551,11 @@ func (cs *State) enterPrecommitWait(height int64, round int32) {
 }
 
 // Enter: +2/3 precommits for block
-func (cs *State) enterCommit(height int64, commitRound int32) {
-	_, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.enterCommit")
+func (cs *State) enterCommit(height int64, commitRound int32, ctx context.Context) {
+	if ctx == nil {
+		ctx = cs.getTracingCtx()
+	}
+	enterCommitCtx, span := cs.tracer.Start(ctx, "cs.state.enterCommit")
 	span.SetAttributes(attribute.Int("round", int(commitRound)))
 	span.SetAttributes(attribute.Int("height", int(height)))
 	defer span.End()
@@ -1563,7 +1580,7 @@ func (cs *State) enterCommit(height int64, commitRound int32) {
 		cs.newStep()
 
 		// Maybe finalize immediately.
-		cs.tryFinalizeCommit(height)
+		cs.tryFinalizeCommit(height, enterCommitCtx)
 	}()
 
 	blockID, ok := cs.Votes.Precommits(commitRound).TwoThirdsMajority()
@@ -1604,7 +1621,7 @@ func (cs *State) enterCommit(height int64, commitRound int32) {
 }
 
 // If we have the block AND +2/3 commits for it, finalize.
-func (cs *State) tryFinalizeCommit(height int64) {
+func (cs *State) tryFinalizeCommit(height int64, ctx context.Context) {
 	logger := cs.Logger.With("height", height)
 
 	if cs.Height != height {
@@ -1628,12 +1645,15 @@ func (cs *State) tryFinalizeCommit(height int64) {
 		return
 	}
 
-	cs.finalizeCommit(height)
+	cs.finalizeCommit(height, ctx)
 }
 
 // Increment height and goto cstypes.RoundStepNewHeight
-func (cs *State) finalizeCommit(height int64) {
-	spanCtx, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.finalizeCommit")
+func (cs *State) finalizeCommit(height int64, ctx context.Context) {
+	if ctx == nil {
+		ctx = cs.getTracingCtx()
+	}
+	spanCtx, span := cs.tracer.Start(ctx, "cs.state.finalizeCommit")
 	defer span.End()
 	logger := cs.Logger.With("height", height)
 
@@ -1697,14 +1717,14 @@ func (cs *State) finalizeCommit(height int64) {
 	// restart).
 	endMsg := EndHeightMessage{height}
 	_, fsyncSpan := cs.tracer.Start(spanCtx, "cs.state.finalizeCommit.fsync")
-	defer fsyncSpan.End()
+
 	if err := cs.wal.WriteSync(endMsg); err != nil { // NOTE: fsync
 		panic(fmt.Sprintf(
 			"failed to write %v msg to consensus WAL due to %v; check your file system and restart the node",
 			endMsg, err,
 		))
 	}
-
+	fsyncSpan.End()
 	fail.Fail() // XXX
 
 	// Create a copy of the state for staging and an event cache for txs.
@@ -1925,6 +1945,8 @@ func (cs *State) defaultSetProposal(proposal *types.Proposal) error {
 // Asynchronously triggers either enterPrevote (before we timeout of propose) or tryFinalizeCommit,
 // once we have the full block.
 func (cs *State) addProposalBlockPart(msg *BlockPartMessage, peerID p2p.ID) (added bool, err error) {
+	addProposalBlockPartCtx, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.addProposalBlockPart")
+	defer span.End()
 	height, round, part := msg.Height, msg.Round, msg.Part
 
 	// Blocks might be reused, so round mismatch is OK
@@ -1953,8 +1975,8 @@ func (cs *State) addProposalBlockPart(msg *BlockPartMessage, peerID p2p.ID) (add
 		}
 		cs.blockPartCtx, cs.blockPartSpan = cs.tracer.Start(cs.getTracingCtx(), "cs.state.collectBlockPart")
 	}
-	_, span := cs.tracer.Start(cs.blockPartCtx, "cs.state.addProposalBlockPart")
-	defer span.End()
+	/*_, span := cs.tracer.Start(cs.blockPartCtx, "cs.state.addProposalBlockPart")
+	defer span.End()*/
 
 	added, err = cs.ProposalBlockParts.AddPart(part)
 	if err != nil {
@@ -1966,7 +1988,7 @@ func (cs *State) addProposalBlockPart(msg *BlockPartMessage, peerID p2p.ID) (add
 		)
 	}
 	if added && cs.ProposalBlockParts.IsComplete() {
-		span.End()
+		//span.End()
 		cs.blockPartSpan.End()
 		cs.blockPartSpan, cs.blockPartCtx = nil, nil
 
@@ -2019,13 +2041,13 @@ func (cs *State) addProposalBlockPart(msg *BlockPartMessage, peerID p2p.ID) (add
 
 		if cs.Step <= cstypes.RoundStepPropose && cs.isProposalComplete() {
 			// Move onto the next step
-			cs.enterPrevote(height, cs.Round)
+			cs.enterPrevote(height, cs.Round, addProposalBlockPartCtx)
 			if hasTwoThirds { // this is optimisation as this will be triggered when prevote is added
-				cs.enterPrecommit(height, cs.Round)
+				cs.enterPrecommit(height, cs.Round, addProposalBlockPartCtx)
 			}
 		} else if cs.Step == cstypes.RoundStepCommit {
 			// If we're waiting on the proposal block...
-			cs.tryFinalizeCommit(height)
+			cs.tryFinalizeCommit(height, addProposalBlockPartCtx)
 		}
 
 		return added, nil
@@ -2036,7 +2058,7 @@ func (cs *State) addProposalBlockPart(msg *BlockPartMessage, peerID p2p.ID) (add
 
 // Attempt to add the vote. if its a duplicate signature, dupeout the validator
 func (cs *State) tryAddVote(vote *types.Vote, peerID p2p.ID) (bool, error) {
-	_, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.tryAddVote")
+	tryAddVoteCtx, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.tryAddVote")
 	span.SetAttributes(
 		attribute.String("voteType", vote.Type.String()),
 		attribute.Int("height", int(cs.Height)),
@@ -2045,7 +2067,7 @@ func (cs *State) tryAddVote(vote *types.Vote, peerID p2p.ID) (bool, error) {
 		attribute.Int("validatorIndex", int(vote.ValidatorIndex)),
 	)
 	defer span.End()
-	added, err := cs.addVote(vote, peerID)
+	added, err := cs.addVote(vote, peerID, tryAddVoteCtx)
 	if err != nil {
 		// If the vote height is off, we'll just ignore it,
 		// But if it's a conflicting sig, add it to the cs.evpool.
@@ -2092,7 +2114,9 @@ func (cs *State) tryAddVote(vote *types.Vote, peerID p2p.ID) (bool, error) {
 	return added, nil
 }
 
-func (cs *State) addVote(vote *types.Vote, peerID p2p.ID) (added bool, err error) {
+func (cs *State) addVote(vote *types.Vote, peerID p2p.ID, ctx context.Context) (added bool, err error) {
+	addVoteCtx, span := cs.tracer.Start(ctx, "cs.state.addVote")
+	defer span.End()
 	cs.Logger.Debug(
 		"adding vote",
 		"vote_height", vote.Height,
@@ -2219,7 +2243,7 @@ func (cs *State) addVote(vote *types.Vote, peerID p2p.ID) (added bool, err error
 		case cs.Round == vote.Round && cstypes.RoundStepPrevote <= cs.Step: // current round
 			blockID, ok := prevotes.TwoThirdsMajority()
 			if ok && (cs.isProposalComplete() || len(blockID.Hash) == 0) {
-				cs.enterPrecommit(height, vote.Round)
+				cs.enterPrecommit(height, vote.Round, addVoteCtx)
 			} else if prevotes.HasTwoThirdsAny() {
 				cs.enterPrevoteWait(height, vote.Round)
 			}
@@ -2227,7 +2251,7 @@ func (cs *State) addVote(vote *types.Vote, peerID p2p.ID) (added bool, err error
 		case cs.Proposal != nil && 0 <= cs.Proposal.POLRound && cs.Proposal.POLRound == vote.Round:
 			// If the proposal is now complete, enter prevote of cs.Round.
 			if cs.isProposalComplete() {
-				cs.enterPrevote(height, cs.Round)
+				cs.enterPrevote(height, cs.Round, addVoteCtx)
 			}
 		}
 
@@ -2244,10 +2268,10 @@ func (cs *State) addVote(vote *types.Vote, peerID p2p.ID) (added bool, err error
 		if ok {
 			// Executed as TwoThirdsMajority could be from a higher round
 			cs.enterNewRound(height, vote.Round)
-			cs.enterPrecommit(height, vote.Round)
+			cs.enterPrecommit(height, vote.Round, addVoteCtx)
 
 			if len(blockID.Hash) != 0 {
-				cs.enterCommit(height, vote.Round)
+				cs.enterCommit(height, vote.Round, addVoteCtx)
 				if cs.config.SkipTimeoutCommit && precommits.HasAll() {
 					cs.enterNewRound(cs.Height, 0)
 				}

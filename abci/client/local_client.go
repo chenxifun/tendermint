@@ -155,6 +155,16 @@ func (app *localClient) ProcessProposalAsync(ctx context.Context, req types.Requ
 	)
 }
 
+func (app *localClient) FinalizeBlockerAsync(ctx context.Context, req types.RequestFinalizeBlocker) *ReqRes {
+	app.mtx.Lock()
+	defer app.mtx.Unlock()
+	res := app.Application.FinalizeBlocker(ctx, req)
+	return app.callback(
+		types.ToRequestFinalizeBlocker(req),
+		types.ToResponseFinalizeBlocker(res),
+	)
+}
+
 func (app *localClient) BeginBlockAsync(ctx context.Context, req types.RequestBeginBlock) *ReqRes {
 	app.mtx.Lock()
 	defer app.mtx.Unlock()
@@ -308,6 +318,14 @@ func (app *localClient) EndBlockSync(ctx context.Context, req types.RequestEndBl
 	defer app.mtx.Unlock()
 
 	res := app.Application.EndBlock(ctx, req)
+	return &res, nil
+}
+
+func (app *localClient) FinalizeBlockerSync(ctx context.Context, req types.RequestFinalizeBlocker) (*types.ResponseFinalizeBlocker, error) {
+	app.mtx.Lock()
+	defer app.mtx.Unlock()
+
+	res := app.Application.FinalizeBlocker(ctx, req)
 	return &res, nil
 }
 

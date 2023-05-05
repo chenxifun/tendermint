@@ -376,6 +376,14 @@ func (cli *socketClient) ProcessProposalSync(ctx context.Context, req types.Requ
 	return reqres.Response.GetProcessProposal(), cli.Error()
 }
 
+func (cli *socketClient) FinalizeBlockerSync(ctx context.Context, req types.RequestFinalizeBlocker) (*types.ResponseFinalizeBlocker, error) {
+	reqres := cli.queueRequest(types.ToRequestFinalizeBlocker(req))
+	if err := cli.FlushSync(); err != nil {
+		return nil, err
+	}
+	return reqres.Response.GetFinalizeBlocker(), cli.Error()
+}
+
 func (cli *socketClient) BeginBlockSync(ctx context.Context, req types.RequestBeginBlock) (*types.ResponseBeginBlock, error) {
 	reqres := cli.queueRequest(types.ToRequestBeginBlock(req))
 	if err := cli.FlushSync(); err != nil {

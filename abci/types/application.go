@@ -22,8 +22,9 @@ type Application interface {
 	ProcessProposal(context.Context, RequestProcessProposal) ResponseProcessProposal
 	BeginBlock(context.Context, RequestBeginBlock) ResponseBeginBlock // Signals the beginning of a block
 	DeliverTx(context.Context, RequestDeliverTx) ResponseDeliverTx    // Deliver a tx for full processing
-	EndBlock(context.Context, RequestEndBlock) ResponseEndBlock       // Signals the end of a block, returns changes to the validator set
-	Commit(context.Context) ResponseCommit                            // Commit the state and return the application Merkle root hash
+	FinalizeBlocker(context.Context, RequestFinalizeBlocker) ResponseFinalizeBlocker
+	EndBlock(context.Context, RequestEndBlock) ResponseEndBlock // Signals the end of a block, returns changes to the validator set
+	Commit(context.Context) ResponseCommit                      // Commit the state and return the application Merkle root hash
 
 	// State Sync Connection
 	ListSnapshots(RequestListSnapshots) ResponseListSnapshots                // List available snapshots
@@ -75,7 +76,9 @@ func (BaseApplication) InitChain(req RequestInitChain) ResponseInitChain {
 func (BaseApplication) ProcessProposal(c context.Context, req RequestProcessProposal) ResponseProcessProposal {
 	return ResponseProcessProposal{}
 }
-
+func (a BaseApplication) FinalizeBlocker(ctx context.Context, req RequestFinalizeBlocker) ResponseFinalizeBlocker {
+	return ResponseFinalizeBlocker{}
+}
 func (BaseApplication) BeginBlock(c context.Context, req RequestBeginBlock) ResponseBeginBlock {
 	return ResponseBeginBlock{}
 }
@@ -161,6 +164,11 @@ func (app *GRPCApplication) ProcessProposal(ctx context.Context, req *RequestPro
 
 func (app *GRPCApplication) BeginBlock(ctx context.Context, req *RequestBeginBlock) (*ResponseBeginBlock, error) {
 	res := app.app.BeginBlock(nil, *req)
+	return &res, nil
+}
+
+func (app *GRPCApplication) FinalizeBlocker(ctx context.Context, req *RequestFinalizeBlocker) (*ResponseFinalizeBlocker, error) {
+	res := app.app.FinalizeBlocker(ctx, *req)
 	return &res, nil
 }
 

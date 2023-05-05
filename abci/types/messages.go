@@ -129,6 +129,12 @@ func ToRequestProcessProposal(req RequestProcessProposal) *Request {
 	}
 }
 
+func ToRequestFinalizeBlocker(req RequestFinalizeBlocker) *Request {
+	return &Request{
+		Value: &Request_FinalizeBlocker{&req},
+	}
+}
+
 func ToRequestBeginBlock(req RequestBeginBlock) *Request {
 	return &Request{
 		Value: &Request_BeginBlock{&req},
@@ -230,6 +236,12 @@ func ToResponseInitChain(res ResponseInitChain) *Response {
 func ToResponseProcessProposal(res ResponseProcessProposal) *Response {
 	return &Response{
 		Value: &Response_ProcessProposal{&res},
+	}
+}
+
+func ToResponseFinalizeBlocker(res ResponseFinalizeBlocker) *Response {
+	return &Response{
+		Value: &Response_FinalizeBlocker{&res},
 	}
 }
 

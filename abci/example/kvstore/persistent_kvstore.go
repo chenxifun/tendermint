@@ -123,6 +123,9 @@ func (app *PersistentKVStoreApplication) InitChain(req types.RequestInitChain) t
 func (app *PersistentKVStoreApplication) ProcessProposal(context context.Context, req types.RequestProcessProposal) types.ResponseProcessProposal {
 	return types.ResponseProcessProposal{}
 }
+func (app *PersistentKVStoreApplication) FinalizeBlocker(ctx context.Context, blocker types.RequestFinalizeBlocker) types.ResponseFinalizeBlocker {
+	return types.ResponseFinalizeBlocker{}
+}
 
 // Track the block hash and header information
 func (app *PersistentKVStoreApplication) BeginBlock(c context.Context, req types.RequestBeginBlock) types.ResponseBeginBlock {

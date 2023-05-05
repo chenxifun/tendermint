@@ -411,6 +411,11 @@ func (cli *grpcClient) EndBlockSync(ctx context2.Context, params types.RequestEn
 	return cli.finishSyncCall(reqres).GetEndBlock(), cli.Error()
 }
 
+func (cli *grpcClient) FinalizeBlockerSync(ctx context2.Context, blocker types.RequestFinalizeBlocker) (*types.ResponseFinalizeBlocker, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (cli *grpcClient) ListSnapshotsSync(params types.RequestListSnapshots) (*types.ResponseListSnapshots, error) {
 	reqres := cli.ListSnapshotsAsync(params)
 	return cli.finishSyncCall(reqres).GetListSnapshots(), cli.Error()

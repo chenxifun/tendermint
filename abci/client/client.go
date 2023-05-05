@@ -59,6 +59,7 @@ type Client interface {
 	LoadSnapshotChunkSync(types.RequestLoadSnapshotChunk) (*types.ResponseLoadSnapshotChunk, error)
 	ApplySnapshotChunkSync(types.RequestApplySnapshotChunk) (*types.ResponseApplySnapshotChunk, error)
 	ProcessProposalSync(context.Context, types.RequestProcessProposal) (*types.ResponseProcessProposal, error)
+	FinalizeBlockerSync(ctx context.Context, blocker types.RequestFinalizeBlocker) (*types.ResponseFinalizeBlocker, error)
 }
 
 //----------------------------------------

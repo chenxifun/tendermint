@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+	"strconv"
 	"time"
 
 	abci "github.com/tendermint/tendermint/abci/types"
@@ -244,19 +246,22 @@ func (blockExec *BlockExecutor) Commit(ctx context.Context, state State, block *
 
 	// while mempool is Locked, flush to ensure all async requests have completed
 	// in the ABCI app before Commit.
+	_, spanFlushAppConn := tracer.Start(ctx, "cs.state.Commit.spanFlushAppConn")
 	err := blockExec.mempool.FlushAppConn()
 	if err != nil {
 		blockExec.logger.Error("client error during mempool.FlushAppConn", "err", err)
 		return nil, 0, err
 	}
+	spanFlushAppConn.End()
 
 	// Commit block, get hash back
+	_, spanCommitSync := tracer.Start(ctx, "cs.state.Commit.CommitSync")
 	res, err := blockExec.proxyApp.CommitSync(ctx)
 	if err != nil {
 		blockExec.logger.Error("client error during proxyAppConn.CommitSync", "err", err)
 		return nil, 0, err
 	}
-
+	spanCommitSync.End()
 	// ResponseCommit has no error code - just data
 	blockExec.logger.Info(
 		"committed state",
@@ -265,6 +270,7 @@ func (blockExec *BlockExecutor) Commit(ctx context.Context, state State, block *
 		"app_hash", fmt.Sprintf("%X", res.Data),
 	)
 
+	_, spanUpdate := tracer.Start(ctx, "cs.state.Commit.mempool.Update")
 	// Update mempool.
 	err = blockExec.mempool.Update(
 		block.Height,
@@ -273,7 +279,7 @@ func (blockExec *BlockExecutor) Commit(ctx context.Context, state State, block *
 		TxPreCheck(state),
 		TxPostCheck(state),
 	)
-
+	spanUpdate.End()
 	return res.Data, res.RetainHeight, err
 }
 
@@ -299,24 +305,6 @@ func execBlockOnProxyApp(ctx context.Context, logger log.Logger, proxyAppConn pr
 	abciResponses.DeliverTxs = dtxs
 
 	// Execute transactions and get hash.
-	proxyCb := func(req *abci.Request, res *abci.Response) {
-		if r, ok := res.Value.(*abci.Response_DeliverTx); ok {
-			// TODO: make use of res.Log
-			// TODO: make use of this info
-			// Blocks may include invalid txs.
-			txRes := r.DeliverTx
-			if txRes.Code == abci.CodeTypeOK {
-				validTxs++
-			} else {
-				logger.Debug("invalid tx", "code", txRes.Code, "log", txRes.Log)
-				invalidTxs++
-			}
-
-			abciResponses.DeliverTxs[txIndex] = txRes
-			txIndex++
-		}
-	}
-	proxyAppConn.SetResponseCallback(proxyCb)
 
 	commitInfo := getBeginBlockValidatorInfo(block, store, initialHeight)
 
@@ -324,7 +312,6 @@ func execBlockOnProxyApp(ctx context.Context, logger log.Logger, proxyAppConn pr
 	for _, evidence := range block.Evidence.Evidence {
 		byzVals = append(byzVals, evidence.ABCI()...)
 	}
-
 	// Begin block
 	var err error
 	pbh := block.Header.ToProto()
@@ -332,6 +319,7 @@ func execBlockOnProxyApp(ctx context.Context, logger log.Logger, proxyAppConn pr
 		return nil, errors.New("nil header")
 	}
 
+	/*_, spanBeginBlock := tracer.Start(ctx, "cs.state.BeginBlock")
 	abciResponses.BeginBlock, err = proxyAppConn.BeginBlockSync(ctx, abci.RequestBeginBlock{
 		Hash:                block.Hash(),
 		Header:              *pbh,
@@ -342,22 +330,88 @@ func execBlockOnProxyApp(ctx context.Context, logger log.Logger, proxyAppConn pr
 		logger.Error("error in proxyAppConn.BeginBlock", "err", err)
 		return nil, err
 	}
+	spanBeginBlock.End()*/
 
-	// run txs of block
-	for _, tx := range block.Txs {
-		proxyAppConn.DeliverTxAsync(ctx, abci.RequestDeliverTx{Tx: tx})
-		if err := proxyAppConn.Error(); err != nil {
-			return nil, err
-		}
-	}
-
-	// End block.
-	abciResponses.EndBlock, err = proxyAppConn.EndBlockSync(ctx, abci.RequestEndBlock{Height: block.Height})
+	_, spanFinalizeBlocker := tracer.Start(ctx, "cs.state.FinalizeBlockerSync")
+	resp, err := proxyAppConn.FinalizeBlockerSync(ctx, abci.RequestFinalizeBlocker{
+		Height: uint64(block.Height),
+		Hash:   block.Hash(),
+	})
+	logger.Info("FinalizeBlockerSync recive txResult size= " + strconv.Itoa(len(resp.ResponseDeliverTx)))
 	if err != nil {
-		logger.Error("error in proxyAppConn.EndBlock", "err", err)
+		logger.Error("error in proxyAppConn.FinalizeBlockerSync", "err", err)
 		return nil, err
 	}
+	spanFinalizeBlocker.SetAttributes(attribute.Int("txs-size", len(resp.ResponseDeliverTx)))
+	spanFinalizeBlocker.End()
+	if resp.ResponseBeginBlock != nil {
+		abciResponses.BeginBlock = resp.ResponseBeginBlock
+	} else {
+		_, spanBeginBlock := tracer.Start(ctx, "cs.state.BeginBlock")
+		abciResponses.BeginBlock, err = proxyAppConn.BeginBlockSync(ctx, abci.RequestBeginBlock{
+			Hash:                block.Hash(),
+			Header:              *pbh,
+			LastCommitInfo:      commitInfo,
+			ByzantineValidators: byzVals,
+		})
+		if err != nil {
+			logger.Error("error in proxyAppConn.BeginBlock", "err", err)
+			return nil, err
+		}
+		spanBeginBlock.End()
+	}
+	if resp.ResponseDeliverTx != nil {
+		for index, result := range resp.ResponseDeliverTx {
+			abciResponses.DeliverTxs[index] = result
+		}
+	} else {
+		_, spanproxyCb := tracer.Start(ctx, "cs.state.proxyCb")
+		spanproxyCb.End()
+		proxyCb := func(req *abci.Request, res *abci.Response) {
+			if r, ok := res.Value.(*abci.Response_DeliverTx); ok {
+				// TODO: make use of res.Log
+				// TODO: make use of this info
+				// Blocks may include invalid txs.
+				txRes := r.DeliverTx
+				if txRes.Code == abci.CodeTypeOK {
+					validTxs++
+				} else {
+					logger.Debug("invalid tx", "code", txRes.Code, "log", txRes.Log)
+					invalidTxs++
+				}
 
+				abciResponses.DeliverTxs[txIndex] = txRes
+				txIndex++
+			}
+		}
+		spanproxyCb.End()
+
+		_, spanSetResponseCallback := tracer.Start(ctx, "cs.state.SetResponseCallback")
+		proxyAppConn.SetResponseCallback(proxyCb)
+		spanSetResponseCallback.End()
+		// run txs of block
+		_, spanDeliverTxAsync := tracer.Start(ctx, "cs.state. run txs of block")
+		for _, tx := range block.Txs {
+			proxyAppConn.DeliverTxAsync(ctx, abci.RequestDeliverTx{Tx: tx})
+			if err := proxyAppConn.Error(); err != nil {
+				return nil, err
+			}
+		}
+		spanDeliverTxAsync.End()
+	}
+
+	if resp.ResponseEndBlock != nil {
+		abciResponses.EndBlock = resp.ResponseEndBlock
+	} else {
+		_, spanEndBlock := tracer.Start(ctx, "cs.state. EndBlockSync")
+		// End block.
+		abciResponses.EndBlock, err = proxyAppConn.EndBlockSync(ctx, abci.RequestEndBlock{Height: block.Height})
+		if err != nil {
+			logger.Error("error in proxyAppConn.EndBlock", "err", err)
+			return nil, err
+		}
+		spanEndBlock.End()
+	}
 	logger.Info("executed block", "height", block.Height, "num_valid_txs", validTxs, "num_invalid_txs", invalidTxs)
 	return abciResponses, nil
 }
