@@ -32,6 +32,7 @@ func BroadcastTxAsync(ctx *rpctypes.Context, tx types.Tx) (*ctypes.ResultBroadca
 // DeliverTx result.
 // More: https://docs.tendermint.com/master/rpc/#/Tx/broadcast_tx_sync
 func BroadcastTxSync(ctx *rpctypes.Context, tx types.Tx) (*ctypes.ResultBroadcastTx, error) {
+
 	resCh := make(chan *abci.Response, 1)
 	err := env.Mempool.CheckTx(tx, func(res *abci.Response) {
 		resCh <- res

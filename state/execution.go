@@ -241,8 +241,8 @@ func (blockExec *BlockExecutor) Commit(ctx context.Context, state State, block *
 		ctx = spanCtx
 		defer span.End()
 	}
-	blockExec.mempool.Lock()
-	defer blockExec.mempool.Unlock()
+	/*blockExec.mempool.Lock()
+	defer blockExec.mempool.Unlock()*/
 
 	// while mempool is Locked, flush to ensure all async requests have completed
 	// in the ABCI app before Commit.
