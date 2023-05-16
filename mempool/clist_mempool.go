@@ -517,7 +517,7 @@ func (mem *CListMempool) notifyTxsAvailable() {
 }
 
 // Safe for concurrent use by multiple goroutines.
-func (mem *CListMempool) ReapMaxBytesMaxGas(ctx context.Context, maxBytes, maxGas int64) types.Txs {
+/*func (mem *CListMempool) ReapMaxBytesMaxGas(ctx context.Context, maxBytes, maxGas int64) types.Txs {
 	_, span := global.StartSpan(ctx, "tendermint.mempool.ReapMaxBytesMaxGas")
 	defer span.End()
 
@@ -548,6 +548,47 @@ func (mem *CListMempool) ReapMaxBytesMaxGas(ctx context.Context, maxBytes, maxGa
 			return txs
 		}
 		totalGas = newTotalGas
+		txs = append(txs, memTx.tx)
+	}
+	return txs
+}*/
+
+func (mem *CListMempool) ReapMaxBytesMaxGas(ctx context.Context, maxBytes, maxGas int64) types.Txs {
+	_, span := global.StartSpan(ctx, "tendermint.mempool.ReapMaxBytesMaxGas")
+	defer span.End()
+	mem.updateMtx.RLock()
+	defer mem.updateMtx.RUnlock()
+
+	//var totalGas int64
+	var lenth = 10000
+
+	// TODO: we will get a performance boost if we have a good estimate of avg
+	// size per tx, and set the initial capacity based off of that.
+	// txs := make([]types.Tx, 0, tmmath.MinInt(mem.txs.Len(), max/mem.avgTxSize))
+	memTxs := mem.txs.FrontBatch(lenth)
+	txs := make([]types.Tx, 0, len(memTxs))
+	/*for e := mem.txs.Front(); e != nil; e = e.Next() {
+		memTx := e.Value.(*mempoolTx)
+
+		dataSize := types.ComputeProtoSizeForTxs(append(txs, memTx.tx))
+
+		// Check total size requirement
+		if maxBytes > -1 && dataSize > maxBytes {
+			return txs
+		}
+		// Check total gas requirement.
+		// If maxGas is negative, skip this check.
+		// Since newTotalGas < masGas, which
+		// must be non-negative, it follows that this won't overflow.
+		newTotalGas := totalGas + memTx.gasWanted
+		if maxGas > -1 && newTotalGas > maxGas {
+			return txs
+		}
+		totalGas = newTotalGas
+		txs = append(txs, memTx.tx)
+	}*/
+	for _, e := range memTxs {
+		memTx := e.Value.(*mempoolTx)
 		txs = append(txs, memTx.tx)
 	}
 	return txs

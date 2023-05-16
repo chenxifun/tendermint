@@ -266,6 +266,22 @@ func (l *CList) Front() *CElement {
 	return head
 }
 
+func (l *CList) FrontBatch(size int) []*CElement {
+	l.mtx.RLock()
+	defer l.mtx.RUnlock()
+	currentsize := l.len
+	if currentsize > size {
+		currentsize = size
+	}
+	cElements := make([]*CElement, 0, currentsize)
+	element := l.head
+	for i := 0; i < currentsize; i++ {
+		cElements = append(cElements, element)
+		element = element.next
+	}
+	return cElements
+}
+
 func (l *CList) FrontWait() *CElement {
 	// Loop until the head is non-nil else wait and try again
 	for {
