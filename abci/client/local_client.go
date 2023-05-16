@@ -101,8 +101,8 @@ func (app *localClient) DeliverTxAsync(ctx context.Context, params types.Request
 }
 
 func (app *localClient) CheckTxAsync(req types.RequestCheckTx) *ReqRes {
-	app.mtx.Lock()
-	defer app.mtx.Unlock()
+	/*app.mtx.Lock()
+	defer app.mtx.Unlock()*/
 
 	res := app.Application.CheckTx(req)
 	return app.callback(
@@ -145,8 +145,8 @@ func (app *localClient) InitChainAsync(req types.RequestInitChain) *ReqRes {
 }
 
 func (app *localClient) ProcessProposalAsync(ctx context.Context, req types.RequestProcessProposal) *ReqRes {
-	app.mtx.Lock()
-	defer app.mtx.Unlock()
+	/*app.mtx.Lock()
+	defer app.mtx.Unlock()*/
 
 	res := app.Application.ProcessProposal(ctx, req)
 	return app.callback(
@@ -156,8 +156,8 @@ func (app *localClient) ProcessProposalAsync(ctx context.Context, req types.Requ
 }
 
 func (app *localClient) FinalizeBlockerAsync(ctx context.Context, req types.RequestFinalizeBlocker) *ReqRes {
-	app.mtx.Lock()
-	defer app.mtx.Unlock()
+	/*app.mtx.Lock()
+	defer app.mtx.Unlock()*/
 	res := app.Application.FinalizeBlocker(ctx, req)
 	return app.callback(
 		types.ToRequestFinalizeBlocker(req),
@@ -282,8 +282,8 @@ func (app *localClient) QuerySync(req types.RequestQuery) (*types.ResponseQuery,
 }
 
 func (app *localClient) CommitSync(ctx context.Context) (*types.ResponseCommit, error) {
-	app.mtx.Lock()
-	defer app.mtx.Unlock()
+	/*app.mtx.Lock()
+	defer app.mtx.Unlock()*/
 
 	res := app.Application.Commit(ctx)
 	return &res, nil
@@ -298,8 +298,8 @@ func (app *localClient) InitChainSync(req types.RequestInitChain) (*types.Respon
 }
 
 func (app *localClient) ProcessProposalSync(ctx context.Context, req types.RequestProcessProposal) (*types.ResponseProcessProposal, error) {
-	app.mtx.Lock()
-	defer app.mtx.Unlock()
+	/*app.mtx.Lock()
+	defer app.mtx.Unlock()*/
 
 	res := app.Application.ProcessProposal(ctx, req)
 	return &res, nil
@@ -322,8 +322,8 @@ func (app *localClient) EndBlockSync(ctx context.Context, req types.RequestEndBl
 }
 
 func (app *localClient) FinalizeBlockerSync(ctx context.Context, req types.RequestFinalizeBlocker) (*types.ResponseFinalizeBlocker, error) {
-	app.mtx.Lock()
-	defer app.mtx.Unlock()
+	/*app.mtx.Lock()
+	defer app.mtx.Unlock()*/
 
 	res := app.Application.FinalizeBlocker(ctx, req)
 	return &res, nil

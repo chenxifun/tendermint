@@ -238,8 +238,8 @@ func (blockExec *BlockExecutor) Commit(ctx context.Context, state State, block *
 		ctx = spanCtx
 		defer span.End()
 	}
-	blockExec.mempool.Lock()
-	defer blockExec.mempool.Unlock()
+	/*blockExec.mempool.Lock()
+	defer blockExec.mempool.Unlock()*/
 
 	// while mempool is Locked, flush to ensure all async requests have completed
 	// in the ABCI app before Commit.
@@ -329,8 +329,8 @@ func execBlockOnProxyApp(ctx context.Context, logger log.Logger, proxyAppConn pr
 	}
 	spanBeginBlock.End()*/
 
-	_, spanFinalizeBlocker := tracer.Start(ctx, "cs.state.FinalizeBlockerSync")
-	resp, err := proxyAppConn.FinalizeBlockerSync(ctx, abci.RequestFinalizeBlocker{
+	spanFinalizeBlockerCtx, spanFinalizeBlocker := tracer.Start(ctx, "cs.state.FinalizeBlockerSync")
+	resp, err := proxyAppConn.FinalizeBlockerSync(spanFinalizeBlockerCtx, abci.RequestFinalizeBlocker{
 		Height: uint64(block.Height),
 		Hash:   block.Hash(),
 	})
@@ -381,20 +381,20 @@ func execBlockOnProxyApp(ctx context.Context, logger log.Logger, proxyAppConn pr
 				txIndex++
 			}
 		}
-		spanproxyCb.End()
+		//spanproxyCb.End()
 
-		_, spanSetResponseCallback := tracer.Start(ctx, "cs.state.SetResponseCallback")
+		//_, spanSetResponseCallback := tracer.Start(ctx, "cs.state.SetResponseCallback")
 		proxyAppConn.SetResponseCallback(proxyCb)
-		spanSetResponseCallback.End()
+		//spanSetResponseCallback.End()
 		// run txs of block
-		_, spanDeliverTxAsync := tracer.Start(ctx, "cs.state. run txs of block")
+		//_, spanDeliverTxAsync := tracer.Start(ctx, "cs.state. run txs of block")
 		for _, tx := range block.Txs {
 			proxyAppConn.DeliverTxAsync(ctx, abci.RequestDeliverTx{Tx: tx})
 			if err := proxyAppConn.Error(); err != nil {
 				return nil, err
 			}
 		}
-		spanDeliverTxAsync.End()
+		//spanDeliverTxAsync.End()
 	}
 
 	if resp.ResponseEndBlock != nil {
