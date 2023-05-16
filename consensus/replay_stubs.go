@@ -8,7 +8,6 @@ import (
 	tmstate "github.com/tendermint/tendermint/proto/tendermint/state"
 	"github.com/tendermint/tendermint/proxy"
 	"github.com/tendermint/tendermint/types"
-	otrace "go.opentelemetry.io/otel/trace"
 	"golang.org/x/net/context"
 )
 
@@ -24,7 +23,7 @@ func (emptyMempool) Size() int { return 0 }
 func (emptyMempool) CheckTx(_ types.Tx, _ func(*abci.Response), _ mempl.TxInfo) error {
 	return nil
 }
-func (emptyMempool) ReapMaxBytesMaxGas(ctx context2.Context, maxBytes, maxGas int64, tracer otrace.Tracer) types.Txs {
+func (emptyMempool) ReapMaxBytesMaxGas(ctx context2.Context, maxBytes, maxGas int64) types.Txs {
 	return types.Txs{}
 }
 func (emptyMempool) ReapMaxTxs(n int) types.Txs { return types.Txs{} }

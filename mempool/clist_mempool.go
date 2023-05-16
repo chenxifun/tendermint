@@ -6,7 +6,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	otrace "go.opentelemetry.io/otel/trace"
+	"github.com/tendermint/tendermint/tools/global"
 	"sync"
 	"sync/atomic"
 
@@ -517,8 +517,8 @@ func (mem *CListMempool) notifyTxsAvailable() {
 }
 
 // Safe for concurrent use by multiple goroutines.
-func (mem *CListMempool) ReapMaxBytesMaxGas(ctx context.Context, maxBytes, maxGas int64, tracer otrace.Tracer) types.Txs {
-	_, span := tracer.Start(ctx, "tendermint.mempool.ReapMaxBytesMaxGas")
+func (mem *CListMempool) ReapMaxBytesMaxGas(ctx context.Context, maxBytes, maxGas int64) types.Txs {
+	_, span := global.StartSpan(ctx, "tendermint.mempool.ReapMaxBytesMaxGas")
 	defer span.End()
 
 	mem.updateMtx.RLock()

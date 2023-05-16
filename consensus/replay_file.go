@@ -19,7 +19,6 @@ import (
 	sm "github.com/tendermint/tendermint/state"
 	"github.com/tendermint/tendermint/store"
 	"github.com/tendermint/tendermint/types"
-	"go.opentelemetry.io/otel/sdk/trace"
 )
 
 const (
@@ -131,7 +130,7 @@ func (pb *playback) replayReset(count int, newStepSub types.Subscription) error 
 	pb.cs.Wait()
 
 	newCS := NewState(pb.cs.config, pb.genesisState.Copy(), pb.cs.blockExec,
-		pb.cs.blockStore, pb.cs.txNotifier, pb.cs.evpool, []trace.TracerProviderOption{}, nil)
+		pb.cs.blockStore, pb.cs.txNotifier, pb.cs.evpool, nil)
 	newCS.SetEventBus(pb.cs.eventBus)
 	newCS.startForReplay()
 
@@ -332,7 +331,7 @@ func newConsensusStateForReplay(config cfg.BaseConfig, csConfig *cfg.ConsensusCo
 	blockExec := sm.NewBlockExecutor(stateStore, log.TestingLogger(), proxyApp.Consensus(), mempool, evpool)
 
 	consensusState := NewState(csConfig, state.Copy(), blockExec,
-		blockStore, mempool, evpool, []trace.TracerProviderOption{}, nil)
+		blockStore, mempool, evpool, nil)
 
 	consensusState.SetEventBus(eventBus)
 	return consensusState

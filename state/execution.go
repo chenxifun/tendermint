@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/tendermint/tendermint/tools/global"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
 	"strconv"
 	"time"
 
@@ -95,8 +95,8 @@ func (blockExec *BlockExecutor) SetEventBus(eventBus types.BlockEventPublisher) 
 // and txs from the mempool. The max bytes must be big enough to fit the commit.
 // Up to 1/10th of the block space is allcoated for maximum sized evidence.
 // The rest is given to txs, up to the max gas.
-func (blockExec *BlockExecutor) CreateProposalBlock(ctx context.Context, height int64, state State, commit *types.Commit, proposerAddr []byte, tracer trace.Tracer) (*types.Block, *types.PartSet) {
-	spanCtx, span := tracer.Start(ctx, "cs.blockExec.CreateProposalBlock")
+func (blockExec *BlockExecutor) CreateProposalBlock(ctx context.Context, height int64, state State, commit *types.Commit, proposerAddr []byte) (*types.Block, *types.PartSet) {
+	spanCtx, span := global.StartSpan(ctx, "cs.blockExec.CreateProposalBlock")
 	defer span.End()
 	maxBytes := state.ConsensusParams.Block.MaxBytes
 	maxGas := state.ConsensusParams.Block.MaxGas
@@ -106,9 +106,9 @@ func (blockExec *BlockExecutor) CreateProposalBlock(ctx context.Context, height 
 	// Fetch a limited amount of valid txs
 	maxDataBytes := types.MaxDataBytes(maxBytes, evSize, state.Validators.Size())
 
-	txs := blockExec.mempool.ReapMaxBytesMaxGas(spanCtx, maxDataBytes, maxGas, tracer)
+	txs := blockExec.mempool.ReapMaxBytesMaxGas(spanCtx, maxDataBytes, maxGas)
 
-	return state.MakeBlock(spanCtx, height, txs, commit, evidence, proposerAddr, tracer)
+	return state.MakeBlock(spanCtx, height, txs, commit, evidence, proposerAddr)
 }
 
 func (blockExec *BlockExecutor) ProcessProposal(ctx context.Context, block *types.Block, state State) (bool, error) {
@@ -148,22 +148,17 @@ func (blockExec *BlockExecutor) ValidateBlock(state State, block *types.Block) e
 // It's the only function that needs to be called
 // from outside this package to process and commit an entire block.
 // It takes a blockID to avoid recomputing the parts hash.
-func (blockExec *BlockExecutor) ApplyBlock(ctx context.Context, state State, blockID types.BlockID, block *types.Block, tracer trace.Tracer) (State, int64, error) {
-	if tracer != nil {
-		spanCtx, span := tracer.Start(ctx, "cs.state.ApplyBlock")
-		ctx = spanCtx
-		defer span.End()
-	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
+func (blockExec *BlockExecutor) ApplyBlock(ctx context.Context, state State, blockID types.BlockID, block *types.Block) (State, int64, error) {
+	spanCtx, span := global.StartSpan(ctx, "cs.state.ApplyBlock")
+	ctx = spanCtx
+	defer span.End()
 
 	if err := validateBlock(state, block); err != nil {
 		return state, 0, ErrInvalidBlock(err)
 	}
 
 	startTime := time.Now().UnixNano()
-	abciResponses, err := execBlockOnProxyApp(ctx, blockExec.logger, blockExec.proxyApp, block, blockExec.store, state.InitialHeight, tracer)
+	abciResponses, err := execBlockOnProxyApp(ctx, blockExec.logger, blockExec.proxyApp, block, blockExec.store, state.InitialHeight)
 	endTime := time.Now().UnixNano()
 	blockExec.metrics.BlockProcessingTime.Observe(float64(endTime-startTime) / 1000000)
 	if err != nil {
@@ -201,7 +196,7 @@ func (blockExec *BlockExecutor) ApplyBlock(ctx context.Context, state State, blo
 	}
 
 	// Lock mempool, commit app state, update mempoool.
-	appHash, retainHeight, err := blockExec.Commit(ctx, state, block, abciResponses.DeliverTxs, tracer)
+	appHash, retainHeight, err := blockExec.Commit(ctx, state, block, abciResponses.DeliverTxs)
 	if err != nil {
 		return state, 0, fmt.Errorf("commit failed for application: %v", err)
 	}
@@ -232,18 +227,16 @@ func (blockExec *BlockExecutor) ApplyBlock(ctx context.Context, state State, blo
 // The Mempool must be locked during commit and update because state is
 // typically reset on Commit and old txs must be replayed against committed
 // state before new txs are run in the mempool, lest they be invalid.
-func (blockExec *BlockExecutor) Commit(ctx context.Context, state State, block *types.Block, deliverTxResponses []*abci.ResponseDeliverTx, tracer trace.Tracer) ([]byte, int64, error) {
-	if tracer != nil {
-		spanCtx, span := tracer.Start(ctx, "cs.state.Commit")
-		ctx = spanCtx
-		defer span.End()
-	}
+func (blockExec *BlockExecutor) Commit(ctx context.Context, state State, block *types.Block, deliverTxResponses []*abci.ResponseDeliverTx) ([]byte, int64, error) {
+	spanCtx, span := global.StartSpan(ctx, "cs.state.Commit")
+	ctx = spanCtx
+	defer span.End()
 	/*blockExec.mempool.Lock()
 	defer blockExec.mempool.Unlock()*/
 
 	// while mempool is Locked, flush to ensure all async requests have completed
 	// in the ABCI app before Commit.
-	_, spanFlushAppConn := tracer.Start(ctx, "cs.state.Commit.spanFlushAppConn")
+	_, spanFlushAppConn := global.StartSpan(ctx, "cs.state.Commit.spanFlushAppConn")
 	err := blockExec.mempool.FlushAppConn()
 	if err != nil {
 		blockExec.logger.Error("client error during mempool.FlushAppConn", "err", err)
@@ -252,7 +245,7 @@ func (blockExec *BlockExecutor) Commit(ctx context.Context, state State, block *
 	spanFlushAppConn.End()
 
 	// Commit block, get hash back
-	_, spanCommitSync := tracer.Start(ctx, "cs.state.Commit.CommitSync")
+	_, spanCommitSync := global.StartSpan(ctx, "cs.state.Commit.CommitSync")
 	res, err := blockExec.proxyApp.CommitSync(ctx)
 	if err != nil {
 		blockExec.logger.Error("client error during proxyAppConn.CommitSync", "err", err)
@@ -267,7 +260,7 @@ func (blockExec *BlockExecutor) Commit(ctx context.Context, state State, block *
 		"app_hash", fmt.Sprintf("%X", res.Data),
 	)
 
-	_, spanUpdate := tracer.Start(ctx, "cs.state.Commit.mempool.Update")
+	_, spanUpdate := global.StartSpan(ctx, "cs.state.Commit.mempool.Update")
 	// Update mempool.
 	err = blockExec.mempool.Update(
 		block.Height,
@@ -285,15 +278,11 @@ func (blockExec *BlockExecutor) Commit(ctx context.Context, state State, block *
 
 // Executes block's transactions on proxyAppConn.
 // Returns a list of transaction results and updates to the validator set
-func execBlockOnProxyApp(ctx context.Context, logger log.Logger, proxyAppConn proxy.AppConnConsensus, block *types.Block, store Store, initialHeight int64, tracer trace.Tracer) (*tmstate.ABCIResponses, error) {
-	if tracer != nil {
-		spanCtx, span := tracer.Start(ctx, "cs.state.execBlockOnProxyApp")
-		ctx = spanCtx
-		defer span.End()
-	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
+func execBlockOnProxyApp(ctx context.Context, logger log.Logger, proxyAppConn proxy.AppConnConsensus, block *types.Block, store Store, initialHeight int64) (*tmstate.ABCIResponses, error) {
+	spanCtx, span := global.StartSpan(ctx, "cs.state.execBlockOnProxyApp")
+	ctx = spanCtx
+	defer span.End()
+
 	var validTxs, invalidTxs = 0, 0
 
 	txIndex := 0
@@ -329,7 +318,7 @@ func execBlockOnProxyApp(ctx context.Context, logger log.Logger, proxyAppConn pr
 	}
 	spanBeginBlock.End()*/
 
-	spanFinalizeBlockerCtx, spanFinalizeBlocker := tracer.Start(ctx, "cs.state.FinalizeBlockerSync")
+	spanFinalizeBlockerCtx, spanFinalizeBlocker := global.StartSpan(spanCtx, "cs.state.FinalizeBlockerSync")
 	resp, err := proxyAppConn.FinalizeBlockerSync(spanFinalizeBlockerCtx, abci.RequestFinalizeBlocker{
 		Height: uint64(block.Height),
 		Hash:   block.Hash(),
@@ -344,7 +333,7 @@ func execBlockOnProxyApp(ctx context.Context, logger log.Logger, proxyAppConn pr
 	if resp.ResponseBeginBlock != nil {
 		abciResponses.BeginBlock = resp.ResponseBeginBlock
 	} else {
-		_, spanBeginBlock := tracer.Start(ctx, "cs.state.BeginBlock")
+		_, spanBeginBlock := global.StartSpan(ctx, "cs.state.BeginBlock")
 		abciResponses.BeginBlock, err = proxyAppConn.BeginBlockSync(ctx, abci.RequestBeginBlock{
 			Hash:                block.Hash(),
 			Header:              *pbh,
@@ -362,7 +351,7 @@ func execBlockOnProxyApp(ctx context.Context, logger log.Logger, proxyAppConn pr
 			abciResponses.DeliverTxs[index] = result
 		}
 	} else {
-		_, spanproxyCb := tracer.Start(ctx, "cs.state.proxyCb")
+		_, spanproxyCb := global.StartSpan(ctx, "cs.state.proxyCb")
 		spanproxyCb.End()
 		proxyCb := func(req *abci.Request, res *abci.Response) {
 			if r, ok := res.Value.(*abci.Response_DeliverTx); ok {
@@ -400,7 +389,7 @@ func execBlockOnProxyApp(ctx context.Context, logger log.Logger, proxyAppConn pr
 	if resp.ResponseEndBlock != nil {
 		abciResponses.EndBlock = resp.ResponseEndBlock
 	} else {
-		_, spanEndBlock := tracer.Start(ctx, "cs.state. EndBlockSync")
+		_, spanEndBlock := global.StartSpan(ctx, "cs.state. EndBlockSync")
 		// End block.
 		abciResponses.EndBlock, err = proxyAppConn.EndBlockSync(ctx, abci.RequestEndBlock{Height: block.Height})
 		if err != nil {
@@ -613,7 +602,7 @@ func ExecCommitBlock(
 	store Store,
 	initialHeight int64,
 ) ([]byte, error) {
-	_, err := execBlockOnProxyApp(nil, logger, appConnConsensus, block, store, initialHeight, nil)
+	_, err := execBlockOnProxyApp(nil, logger, appConnConsensus, block, store, initialHeight)
 	if err != nil {
 		logger.Error("failed executing block on proxy app", "height", block.Height, "err", err)
 		return nil, err

@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/tendermint/tendermint/tools/global"
 	"net"
 	"net/http"
 	_ "net/http/pprof" // nolint: gosec // securely exposed on separate, optional port
@@ -415,19 +416,7 @@ func createBlockchainReactor(config *cfg.Config,
 	return bcReactor, nil
 }
 
-func createConsensusReactor(config *cfg.Config,
-	state sm.State,
-	blockExec *sm.BlockExecutor,
-	blockStore sm.BlockStore,
-	mempool *mempl.CListMempool,
-	evidencePool *evidence.Pool,
-	privValidator types.PrivValidator,
-	csMetrics *cs.Metrics,
-	waitSync bool,
-	eventBus *types.EventBus,
-	consensusLogger log.Logger,
-	traceProviderOps []trace.TracerProviderOption,
-	ctx context.Context) (*cs.Reactor, *cs.State) {
+func createConsensusReactor(config *cfg.Config, state sm.State, blockExec *sm.BlockExecutor, blockStore sm.BlockStore, mempool *mempl.CListMempool, evidencePool *evidence.Pool, privValidator types.PrivValidator, csMetrics *cs.Metrics, waitSync bool, eventBus *types.EventBus, consensusLogger log.Logger, ctx context.Context) (*cs.Reactor, *cs.State) {
 
 	consensusState := cs.NewState(
 		config.Consensus,
@@ -436,7 +425,6 @@ func createConsensusReactor(config *cfg.Config,
 		blockStore,
 		mempool,
 		evidencePool,
-		traceProviderOps,
 		ctx,
 		cs.StateMetrics(csMetrics),
 	)
@@ -671,6 +659,12 @@ func NewNode(config *cfg.Config,
 	ctx context.Context,
 	options ...Option) (*Node, error) {
 
+	tp := trace.NewTracerProvider(tracerProviderOptions...)
+	tracer := tp.Tracer("tendermint")
+
+	// global
+	global.InitTracer(tracer)
+
 	blockStore, stateDB, err := initDBs(config, dbProvider)
 	if err != nil {
 		return nil, err
@@ -682,7 +676,6 @@ func NewNode(config *cfg.Config,
 	if err != nil {
 		return nil, err
 	}
-	tp := trace.NewTracerProvider(tracerProviderOptions...)
 
 	// Create the proxyApp and establish connections to the ABCI app (consensus, mempool, query).
 	proxyApp, err := createAndStartProxyAppConns(clientCreator, logger)
@@ -786,7 +779,7 @@ func NewNode(config *cfg.Config,
 	}
 	consensusReactor, consensusState := createConsensusReactor(
 		config, state, blockExec, blockStore, mempool, evidencePool,
-		privValidator, csMetrics, stateSync || fastSync, eventBus, consensusLogger, tracerProviderOptions, ctx,
+		privValidator, csMetrics, stateSync || fastSync, eventBus, consensusLogger, ctx,
 	)
 
 	// Set up state sync reactor, and schedule a sync if requested.

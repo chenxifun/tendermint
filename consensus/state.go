@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/tendermint/tendermint/tools/global"
 	"io/ioutil"
 	"os"
 	"runtime/debug"
@@ -30,7 +31,6 @@ import (
 	tmtime "github.com/tendermint/tendermint/types/time"
 
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/sdk/trace"
 	otrace "go.opentelemetry.io/otel/trace"
 )
 
@@ -148,13 +148,12 @@ type State struct {
 
 	ctx context.Context
 
-	tracer                otrace.Tracer
-	tracerProviderOptions []trace.TracerProviderOption
-	heightSpan            otrace.Span
-	blockPartSpan         otrace.Span
-	blockPartCtx          context.Context
-	heightBeingTraced     int64
-	tracingCtx            context.Context
+	tracer            otrace.Tracer
+	heightSpan        otrace.Span
+	blockPartSpan     otrace.Span
+	blockPartCtx      context.Context
+	heightBeingTraced int64
+	tracingCtx        context.Context
 }
 
 // StateOption sets an optional parameter on the State.
@@ -168,13 +167,10 @@ func NewState(
 	blockStore sm.BlockStore,
 	txNotifier txNotifier,
 	evpool evidencePool,
-	traceProviderOps []trace.TracerProviderOption,
 	ctx context.Context,
 	options ...StateOption,
 ) *State {
-	tp := trace.NewTracerProvider(traceProviderOps...)
-	tracer := tp.Tracer("tm-consensus-state")
-
+	tracer := global.Tracer()
 	cs := &State{
 		config:           config,
 		blockExec:        blockExec,
@@ -194,7 +190,6 @@ func NewState(
 	}
 
 	cs.tracer = tracer
-	cs.tracerProviderOptions = traceProviderOps
 
 	// set function defaults (may be overwritten before calling Start)
 	cs.decideProposal = cs.defaultDecideProposal
@@ -1263,7 +1258,7 @@ func (cs *State) createProposalBlock(ctx context.Context) (block *types.Block, b
 
 	proposerAddr := cs.privValidatorPubKey.Address()
 
-	return cs.blockExec.CreateProposalBlock(spanCtx, cs.Height, cs.state, commit, proposerAddr, cs.tracer)
+	return cs.blockExec.CreateProposalBlock(spanCtx, cs.Height, cs.state, commit, proposerAddr)
 }
 
 // Enter: `timeoutPropose` after entering Propose.
@@ -1743,8 +1738,7 @@ func (cs *State) finalizeCommit(height int64, ctx context.Context) {
 	stateCopy, retainHeight, err = cs.blockExec.ApplyBlock(spanCtx, stateCopy, types.BlockID{
 		Hash:          block.Hash(),
 		PartSetHeader: blockParts.Header(),
-	}, block,
-		cs.tracer)
+	}, block)
 	if err != nil {
 		logger.Error("failed to apply block", "err", err)
 		return

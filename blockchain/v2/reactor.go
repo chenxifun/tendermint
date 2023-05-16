@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	otrace "go.opentelemetry.io/otel/trace"
 	"time"
 
 	"github.com/tendermint/tendermint/behaviour"
@@ -55,7 +54,7 @@ type blockVerifier interface {
 }
 
 type blockApplier interface {
-	ApplyBlock(ctx context.Context, state state.State, blockID types.BlockID, block *types.Block, tracer otrace.Tracer) (state.State, int64, error)
+	ApplyBlock(ctx context.Context, state state.State, blockID types.BlockID, block *types.Block) (state.State, int64, error)
 }
 
 // XXX: unify naming in this package around tmState
