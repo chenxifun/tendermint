@@ -2,8 +2,10 @@ package state
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
+	otrace "go.opentelemetry.io/otel/trace"
 
 	"io/ioutil"
 	"time"
@@ -233,14 +235,9 @@ func StateFromProto(pb *tmstate.State) (*State, error) { //nolint:golint
 // MakeBlock builds a block from the current state with the given txs, commit,
 // and evidence. Note it also takes a proposerAddress because the state does not
 // track rounds, and hence does not know the correct proposer. TODO: fix this!
-func (state State) MakeBlock(
-	height int64,
-	txs []types.Tx,
-	commit *types.Commit,
-	evidence []types.Evidence,
-	proposerAddress []byte,
-) (*types.Block, *types.PartSet) {
-
+func (state State) MakeBlock(ctx context.Context, height int64, txs []types.Tx, commit *types.Commit, evidence []types.Evidence, proposerAddress []byte, tracer otrace.Tracer) (*types.Block, *types.PartSet) {
+	spanCtx, span := tracer.Start(ctx, "state.state.MakeBlock")
+	defer span.End()
 	// Build base block with block data.
 	block := types.MakeBlock(height, txs, commit, evidence)
 
@@ -260,7 +257,8 @@ func (state State) MakeBlock(
 		types.HashConsensusParams(state.ConsensusParams), state.AppHash, state.LastResultsHash,
 		proposerAddress,
 	)
-
+	_, span2 := tracer.Start(spanCtx, "tendermint.types.block.MakePartSet")
+	defer span2.End()
 	return block, block.MakePartSet(types.BlockPartSizeBytes)
 }
 

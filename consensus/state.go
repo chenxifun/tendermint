@@ -1013,7 +1013,7 @@ func (cs *State) enterNewRound(height int64, round int32) {
 		)
 		return
 	}
-	_, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.enterNewRound")
+	spanCtx, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.enterNewRound")
 	span.SetAttributes(attribute.Int("round", int(round)))
 	span.SetAttributes(attribute.Int("height", int(height)))
 	defer span.End()
@@ -1050,9 +1050,12 @@ func (cs *State) enterNewRound(height int64, round int32) {
 	cs.Votes.SetRound(tmmath.SafeAddInt32(round, 1)) // also track next round (round+1) to allow round-skipping
 	cs.TriggeredTimeoutPrecommit = false
 
+	// 高度警惕！
+	_, eventSpan := cs.tracer.Start(spanCtx, "cs.eventBus.PublishEventNewRound")
 	if err := cs.eventBus.PublishEventNewRound(cs.NewRoundEvent()); err != nil {
 		cs.Logger.Error("failed publishing new round", "err", err)
 	}
+	eventSpan.End()
 
 	cs.metrics.Rounds.Set(float64(round))
 
@@ -1090,7 +1093,7 @@ func (cs *State) needProofBlock(height int64) bool {
 // 		after enterNewRound(height,round), after timeout of CreateEmptyBlocksInterval
 // Enter (!CreateEmptyBlocks) : after enterNewRound(height,round), once txs are in the mempool
 func (cs *State) enterPropose(height int64, round int32) {
-	spanCtx, span := cs.tracer.Start(context.Background(), "cs.state.enterPropose")
+	spanCtx, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.enterPropose")
 	span.SetAttributes(attribute.Int("round", int(round)))
 	span.SetAttributes(attribute.Int("height", int(height)))
 	defer span.End()
@@ -1229,7 +1232,7 @@ func (cs *State) isProposalComplete() bool {
 // NOTE: keep it side-effect free for clarity.
 // CONTRACT: cs.privValidator is not nil.
 func (cs *State) createProposalBlock(ctx context.Context) (block *types.Block, blockParts *types.PartSet) {
-	_, span := cs.tracer.Start(ctx, "cs.state.createProposalBlock")
+	spanCtx, span := cs.tracer.Start(ctx, "cs.state.createProposalBlock")
 	defer span.End(otrace.WithStackTrace(true))
 	if cs.privValidator == nil {
 		panic("entered createProposalBlock with privValidator being nil")
@@ -1260,7 +1263,7 @@ func (cs *State) createProposalBlock(ctx context.Context) (block *types.Block, b
 
 	proposerAddr := cs.privValidatorPubKey.Address()
 
-	return cs.blockExec.CreateProposalBlock(cs.Height, cs.state, commit, proposerAddr)
+	return cs.blockExec.CreateProposalBlock(spanCtx, cs.Height, cs.state, commit, proposerAddr, cs.tracer)
 }
 
 // Enter: `timeoutPropose` after entering Propose.

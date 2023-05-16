@@ -1,7 +1,9 @@
 package mempool
 
 import (
+	"context"
 	"fmt"
+	otrace "go.opentelemetry.io/otel/trace"
 
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/p2p"
@@ -22,7 +24,7 @@ type Mempool interface {
 	// maxGas.
 	// If both maxes are negative, there is no cap on the size of all returned
 	// transactions (~ all available transactions).
-	ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs
+	ReapMaxBytesMaxGas(ctx context.Context, maxBytes, maxGas int64, tracer otrace.Tracer) types.Txs
 
 	// ReapMaxTxs reaps up to max transactions from the mempool.
 	// If max is negative, there is no cap on the size of all returned

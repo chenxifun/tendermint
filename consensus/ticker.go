@@ -2,6 +2,7 @@ package consensus
 
 import (
 	"context"
+	"fmt"
 	"go.opentelemetry.io/otel/attribute"
 	otrace "go.opentelemetry.io/otel/trace"
 	"time"
@@ -130,7 +131,7 @@ func (t *timeoutTicker) timeoutRoutine() {
 			// update timeoutInfo and reset timer
 			// NOTE time.Timer allows duration to be non-positive
 			ti = newti
-			t.timeTraceCtx, t.timeSpan = t.tracer.Start(ti.HeightCtx, "cs.state.timeoutTicker")
+			t.timeTraceCtx, t.timeSpan = t.tracer.Start(ti.HeightCtx, fmt.Sprintf("cs.state.timeoutTicker(%s)", ti.Step.String()))
 			t.timeSpan.SetAttributes(
 				attribute.Int64("height", ti.Height),
 				attribute.Int64("round", int64(ti.Round)),

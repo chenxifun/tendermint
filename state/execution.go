@@ -95,12 +95,9 @@ func (blockExec *BlockExecutor) SetEventBus(eventBus types.BlockEventPublisher) 
 // and txs from the mempool. The max bytes must be big enough to fit the commit.
 // Up to 1/10th of the block space is allcoated for maximum sized evidence.
 // The rest is given to txs, up to the max gas.
-func (blockExec *BlockExecutor) CreateProposalBlock(
-	height int64,
-	state State, commit *types.Commit,
-	proposerAddr []byte,
-) (*types.Block, *types.PartSet) {
-
+func (blockExec *BlockExecutor) CreateProposalBlock(ctx context.Context, height int64, state State, commit *types.Commit, proposerAddr []byte, tracer trace.Tracer) (*types.Block, *types.PartSet) {
+	spanCtx, span := tracer.Start(ctx, "cs.blockExec.CreateProposalBlock")
+	defer span.End()
 	maxBytes := state.ConsensusParams.Block.MaxBytes
 	maxGas := state.ConsensusParams.Block.MaxGas
 
@@ -109,9 +106,9 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 	// Fetch a limited amount of valid txs
 	maxDataBytes := types.MaxDataBytes(maxBytes, evSize, state.Validators.Size())
 
-	txs := blockExec.mempool.ReapMaxBytesMaxGas(maxDataBytes, maxGas)
+	txs := blockExec.mempool.ReapMaxBytesMaxGas(spanCtx, maxDataBytes, maxGas, tracer)
 
-	return state.MakeBlock(height, txs, commit, evidence, proposerAddr)
+	return state.MakeBlock(spanCtx, height, txs, commit, evidence, proposerAddr, tracer)
 }
 
 func (blockExec *BlockExecutor) ProcessProposal(ctx context.Context, block *types.Block, state State) (bool, error) {

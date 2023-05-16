@@ -1,10 +1,12 @@
 package mock
 
 import (
+	"context"
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/libs/clist"
 	mempl "github.com/tendermint/tendermint/mempool"
 	"github.com/tendermint/tendermint/types"
+	otrace "go.opentelemetry.io/otel/trace"
 )
 
 // Mempool is an empty implementation of a Mempool, useful for testing.
@@ -18,8 +20,10 @@ func (Mempool) Size() int { return 0 }
 func (Mempool) CheckTx(_ types.Tx, _ func(*abci.Response), _ mempl.TxInfo) error {
 	return nil
 }
-func (Mempool) ReapMaxBytesMaxGas(_, _ int64) types.Txs { return types.Txs{} }
-func (Mempool) ReapMaxTxs(n int) types.Txs              { return types.Txs{} }
+func (Mempool) ReapMaxBytesMaxGas(ctx context.Context, maxBytes, maxGas int64, tracer otrace.Tracer) types.Txs {
+	return types.Txs{}
+}
+func (Mempool) ReapMaxTxs(n int) types.Txs { return types.Txs{} }
 func (Mempool) Update(
 	_ int64,
 	_ types.Txs,
