@@ -15,8 +15,20 @@ func TxPreCheck(state State) mempl.PreCheckFunc {
 	return mempl.PreCheckMaxBytes(maxDataBytes)
 }
 
+func BatchTxPreCheck(state State) mempl.BatchPreCheckFunc {
+	maxDataBytes := types.MaxDataBytesNoEvidence(
+		state.ConsensusParams.Block.MaxBytes,
+		state.Validators.Size(),
+	)
+	return mempl.BatchPreCheckMaxBytes(maxDataBytes)
+}
+
 // TxPostCheck returns a function to filter transactions after processing.
 // The function limits the gas wanted by a transaction to the block's maximum total gas.
 func TxPostCheck(state State) mempl.PostCheckFunc {
 	return mempl.PostCheckMaxGas(state.ConsensusParams.Block.MaxGas)
+}
+
+func BatchTxPostCheck(state State) mempl.BatchPostCheckFunc {
+	return mempl.BatchPostCheckMaxGas(state.ConsensusParams.Block.MaxGas)
 }

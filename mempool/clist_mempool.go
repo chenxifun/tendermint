@@ -2,10 +2,10 @@ package mempool
 
 import (
 	"bytes"
-	"container/list"
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"github.com/VictoriaMetrics/fastcache"
 	"github.com/tendermint/tendermint/tools/global"
 	"sync"
 	"sync/atomic"
@@ -234,10 +234,6 @@ func (mem *CListMempool) TxsWaitChan() <-chan struct{} {
 //
 // Safe for concurrent use by multiple goroutines.
 func (mem *CListMempool) CheckTx(tx types.Tx, cb func(*abci.Response), txInfo TxInfo) error {
-	mem.updateMtx.RLock()
-	// use defer to unlock mutex because application (*local client*) might panic
-	defer mem.updateMtx.RUnlock()
-
 	txSize := len(tx)
 
 	if err := mem.isFull(txSize); err != nil {
@@ -246,12 +242,6 @@ func (mem *CListMempool) CheckTx(tx types.Tx, cb func(*abci.Response), txInfo Tx
 
 	if txSize > mem.config.MaxTxBytes {
 		return ErrTxTooLarge{mem.config.MaxTxBytes, txSize}
-	}
-
-	if mem.preCheck != nil {
-		if err := mem.preCheck(tx); err != nil {
-			return ErrPreCheck{err}
-		}
 	}
 
 	// NOTE: writing to the WAL and calling proxy must be done before adding tx
@@ -285,6 +275,15 @@ func (mem *CListMempool) CheckTx(tx types.Tx, cb func(*abci.Response), txInfo Tx
 		}
 
 		return ErrTxInCache
+	}
+	mem.updateMtx.RLock()
+	// use defer to unlock mutex because application (*local client*) might panic
+	defer mem.updateMtx.RUnlock()
+
+	if mem.preCheck != nil {
+		if err := mem.preCheck(tx); err != nil {
+			return ErrPreCheck{err}
+		}
 	}
 
 	reqRes := mem.proxyAppConn.CheckTxAsync(abci.RequestCheckTx{Tx: tx})
@@ -718,16 +717,17 @@ func (memTx *mempoolTx) Height() int64 {
 type txCache interface {
 	Reset()
 	Push(tx types.Tx) bool
+	PushKey(key []byte) bool
 	Remove(tx types.Tx)
+	RemoveKey(key []byte)
 }
 
 // mapTxCache maintains a LRU cache of transactions. This only stores the hash
 // of the tx, due to memory concerns.
 type mapTxCache struct {
-	mtx      tmsync.Mutex
+	mtx      sync.Mutex
 	size     int
-	cacheMap map[[TxKeySize]byte]*list.Element
-	list     *list.List
+	cacheMap *fastcache.Cache
 }
 
 var _ txCache = (*mapTxCache)(nil)
@@ -736,65 +736,57 @@ var _ txCache = (*mapTxCache)(nil)
 func newMapTxCache(cacheSize int) *mapTxCache {
 	return &mapTxCache{
 		size:     cacheSize,
-		cacheMap: make(map[[TxKeySize]byte]*list.Element, cacheSize),
-		list:     list.New(),
+		cacheMap: fastcache.New(cacheSize * 32),
 	}
 }
 
 // Reset resets the cache to an empty state.
 func (cache *mapTxCache) Reset() {
 	cache.mtx.Lock()
-	cache.cacheMap = make(map[[TxKeySize]byte]*list.Element, cache.size)
-	cache.list.Init()
+	cache.cacheMap = fastcache.New(cache.size * 32)
 	cache.mtx.Unlock()
 }
 
 // Push adds the given tx to the cache and returns true. It returns
 // false if tx is already in the cache.
 func (cache *mapTxCache) Push(tx types.Tx) bool {
+	// Use the tx hash in the cache
+	txHash := TxKey(tx)
+
+	return cache.PushKey(txHash[:])
+}
+
+func (cache *mapTxCache) PushKey(txHash []byte) bool {
 	cache.mtx.Lock()
 	defer cache.mtx.Unlock()
 
-	// Use the tx hash in the cache
-	txHash := TxKey(tx)
-	if moved, exists := cache.cacheMap[txHash]; exists {
-		cache.list.MoveToBack(moved)
+	if exists := cache.cacheMap.Has(txHash[:]); exists {
 		return false
 	}
 
-	if cache.list.Len() >= cache.size {
-		popped := cache.list.Front()
-		if popped != nil {
-			poppedTxHash := popped.Value.([TxKeySize]byte)
-			delete(cache.cacheMap, poppedTxHash)
-			cache.list.Remove(popped)
-		}
-	}
-	e := cache.list.PushBack(txHash)
-	cache.cacheMap[txHash] = e
+	cache.cacheMap.Set(txHash[:], nil)
 	return true
 }
 
 // Remove removes the given tx from the cache.
 func (cache *mapTxCache) Remove(tx types.Tx) {
-	cache.mtx.Lock()
 	txHash := TxKey(tx)
-	popped := cache.cacheMap[txHash]
-	delete(cache.cacheMap, txHash)
-	if popped != nil {
-		cache.list.Remove(popped)
-	}
+	cache.cacheMap.Del(txHash[:])
+}
 
-	cache.mtx.Unlock()
+func (cache *mapTxCache) RemoveKey(key []byte) {
+	cache.cacheMap.Del(key[:])
 }
 
 type nopTxCache struct{}
 
 var _ txCache = (*nopTxCache)(nil)
 
-func (nopTxCache) Reset()             {}
-func (nopTxCache) Push(types.Tx) bool { return true }
-func (nopTxCache) Remove(types.Tx)    {}
+func (nopTxCache) Reset()                  {}
+func (nopTxCache) Push(types.Tx) bool      { return true }
+func (nopTxCache) PushKey(key []byte) bool { return true }
+func (nopTxCache) Remove(types.Tx)         {}
+func (nopTxCache) RemoveKey(key []byte)    {}
 
 //--------------------------------------------------------------------------------
 
