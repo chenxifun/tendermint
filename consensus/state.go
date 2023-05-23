@@ -1971,8 +1971,8 @@ func (cs *State) addProposalBlockPart(msg *BlockPartMessage, peerID p2p.ID) (add
 		cs.blockPartCtx, cs.blockPartSpan = cs.tracer.Start(cs.getTracingCtx(), "cs.state.collectBlockPart")
 	}
 
-	addProposalBlockPartCtx, span := cs.tracer.Start(cs.blockPartCtx, "cs.state.addProposalBlockPart")
-	defer span.End()
+	//addProposalBlockPartCtx, span := cs.tracer.Start(cs.blockPartCtx, "cs.state.addProposalBlockPart")
+	//defer span.End()
 	/*_, span := cs.tracer.Start(cs.blockPartCtx, "cs.state.addProposalBlockPart")
 	defer span.End()*/
 
@@ -2039,13 +2039,13 @@ func (cs *State) addProposalBlockPart(msg *BlockPartMessage, peerID p2p.ID) (add
 
 		if cs.Step <= cstypes.RoundStepPropose && cs.isProposalComplete() {
 			// Move onto the next step
-			cs.enterPrevote(height, cs.Round, addProposalBlockPartCtx)
+			cs.enterPrevote(height, cs.Round, cs.getTracingCtx())
 			if hasTwoThirds { // this is optimisation as this will be triggered when prevote is added
-				cs.enterPrecommit(height, cs.Round, addProposalBlockPartCtx)
+				cs.enterPrecommit(height, cs.Round, cs.getTracingCtx())
 			}
 		} else if cs.Step == cstypes.RoundStepCommit {
 			// If we're waiting on the proposal block...
-			cs.tryFinalizeCommit(height, addProposalBlockPartCtx)
+			cs.tryFinalizeCommit(height, cs.getTracingCtx())
 		}
 
 		return added, nil
