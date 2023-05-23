@@ -1942,8 +1942,6 @@ func (cs *State) defaultSetProposal(proposal *types.Proposal) error {
 // Asynchronously triggers either enterPrevote (before we timeout of propose) or tryFinalizeCommit,
 // once we have the full block.
 func (cs *State) addProposalBlockPart(msg *BlockPartMessage, peerID p2p.ID) (added bool, err error) {
-	addProposalBlockPartCtx, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.addProposalBlockPart")
-	defer span.End()
 	height, round, part := msg.Height, msg.Round, msg.Part
 
 	// Blocks might be reused, so round mismatch is OK
@@ -1972,6 +1970,9 @@ func (cs *State) addProposalBlockPart(msg *BlockPartMessage, peerID p2p.ID) (add
 		}
 		cs.blockPartCtx, cs.blockPartSpan = cs.tracer.Start(cs.getTracingCtx(), "cs.state.collectBlockPart")
 	}
+
+	addProposalBlockPartCtx, span := cs.tracer.Start(cs.blockPartCtx, "cs.state.addProposalBlockPart")
+	defer span.End()
 	/*_, span := cs.tracer.Start(cs.blockPartCtx, "cs.state.addProposalBlockPart")
 	defer span.End()*/
 

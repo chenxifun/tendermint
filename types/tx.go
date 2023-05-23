@@ -41,6 +41,23 @@ func (txs Txs) Hash() []byte {
 	return merkle.HashFromByteSlices(txBzs)
 }
 
+func (txs Txs) TxsId() []byte {
+	txBzs := make([]byte, len(txs))
+	for i := 0; i < len(txs); i++ {
+		txBzs[i] = txs[i][0]
+	}
+	return tmhash.Sum(txBzs)
+}
+
+func (txs Txs) ByteSize() int {
+	var size int
+	for _, tx := range txs {
+		size += len(tx)
+	}
+	return size
+
+}
+
 // Index returns the index of this transaction in the list, or -1 if not found
 func (txs Txs) Index(tx Tx) int {
 	for i := range txs {

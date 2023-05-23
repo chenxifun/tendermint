@@ -7,6 +7,7 @@ require (
 	github.com/BurntSushi/toml v0.3.1
 	github.com/ChainSafe/go-schnorrkel v0.0.0-20200405005733-88cbf1b4c40d
 	github.com/Microsoft/go-winio v0.5.0 // indirect
+	github.com/VictoriaMetrics/fastcache v1.12.1
 	github.com/Workiva/go-datastructures v1.0.52
 	github.com/adlio/schema v1.1.13
 	github.com/btcsuite/btcd v0.21.0-beta
@@ -43,7 +44,6 @@ require (
 	go.opentelemetry.io/otel/trace v1.9.0
 	golang.org/x/crypto v0.0.0-20201117144127-c1f2f97bffc9
 	golang.org/x/net v0.0.0-20210903162142-ad29c8ab022f
-	golang.org/x/sys v0.0.0-20210903071746-97244b99971b // indirect
 	google.golang.org/grpc v1.37.0
 	google.golang.org/protobuf v1.26.0
 )

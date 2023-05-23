@@ -357,15 +357,17 @@ func onlyValidatorIsUs(state sm.State, pubKey crypto.PubKey) bool {
 }
 
 func createMempoolAndMempoolReactor(config *cfg.Config, proxyApp proxy.AppConns,
-	state sm.State, memplMetrics *mempl.Metrics, logger log.Logger) (*mempl.Reactor, *mempl.CListMempool) {
+	state sm.State, memplMetrics *mempl.Metrics, logger log.Logger) (*mempl.Reactor, *mempl.CListBatchMempool) {
 
-	mempool := mempl.NewCListMempool(
+	mempool := mempl.NewCListBatchMempool(
 		config.Mempool,
 		proxyApp.Mempool(),
 		state.LastBlockHeight,
-		mempl.WithMetrics(memplMetrics),
-		mempl.WithPreCheck(sm.TxPreCheck(state)),
-		mempl.WithPostCheck(sm.TxPostCheck(state)),
+		mempl.WithBatchMetrics(memplMetrics),
+		mempl.WithBatchPreCheck(sm.TxPreCheck(state)),
+		mempl.WithBatchPreCheck2(sm.BatchTxPreCheck(state)),
+		mempl.WithBatchPostCheck(sm.TxPostCheck(state)),
+		mempl.WithBatchPostCheck2(sm.BatchTxPostCheck(state)),
 	)
 	mempoolLogger := logger.With("module", "mempool")
 	mempoolReactor := mempl.NewReactor(config.Mempool, mempool)
@@ -416,7 +418,7 @@ func createBlockchainReactor(config *cfg.Config,
 	return bcReactor, nil
 }
 
-func createConsensusReactor(config *cfg.Config, state sm.State, blockExec *sm.BlockExecutor, blockStore sm.BlockStore, mempool *mempl.CListMempool, evidencePool *evidence.Pool, privValidator types.PrivValidator, csMetrics *cs.Metrics, waitSync bool, eventBus *types.EventBus, consensusLogger log.Logger, ctx context.Context) (*cs.Reactor, *cs.State) {
+func createConsensusReactor(config *cfg.Config, state sm.State, blockExec *sm.BlockExecutor, blockStore sm.BlockStore, mempool *mempl.CListBatchMempool, evidencePool *evidence.Pool, privValidator types.PrivValidator, csMetrics *cs.Metrics, waitSync bool, eventBus *types.EventBus, consensusLogger log.Logger, ctx context.Context) (*cs.Reactor, *cs.State) {
 
 	consensusState := cs.NewState(
 		config.Consensus,
