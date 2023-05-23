@@ -1964,7 +1964,7 @@ func (cs *State) addProposalBlockPart(msg *BlockPartMessage, peerID p2p.ID) (add
 		return false, nil
 	}
 
-	if cs.ProposalBlockParts.Count() == 0 {
+	if cs.ProposalBlockParts.Count() == 0 || cs.blockPartCtx == nil {
 		if cs.blockPartSpan != nil {
 			cs.blockPartSpan.End()
 		}
