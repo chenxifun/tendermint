@@ -2,6 +2,7 @@ package types
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 
@@ -41,12 +42,12 @@ func (txs Txs) Hash() []byte {
 	return merkle.HashFromByteSlices(txBzs)
 }
 
-func (txs Txs) TxsId() []byte {
+func (txs Txs) TxsId() [32]byte {
 	txBzs := make([]byte, len(txs))
 	for i := 0; i < len(txs); i++ {
 		txBzs[i] = txs[i][0]
 	}
-	return tmhash.Sum(txBzs)
+	return sha256.Sum256(txBzs)
 }
 
 func (txs Txs) ByteSize() int {

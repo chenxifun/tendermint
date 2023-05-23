@@ -321,7 +321,7 @@ func (mem *CListBatchMempool) CheckBatchTx(txs types.Txs, txInfo TxInfo) error {
 	}
 
 	txsId := txs.TxsId()
-	if !mem.cache.PushKey(txsId) {
+	if !mem.cache.PushKey(txsId[:]) {
 		// Record a new sender for a tx we've already seen.
 		// Note it's possible a tx is still in the cache but no longer in the mempool
 		// (eg. after committing a block, txs are removed from mempool but not cache),
@@ -478,7 +478,8 @@ func (mem *CListBatchMempool) removeTxBatch(tx types.Tx, elem *clist.CElement, r
 
 	if removeFromCache {
 		mem.cache.Remove(tx)
-		mem.cache.RemoveKey(txBatch.txs.TxsId())
+		txsId := txBatch.txs.TxsId()
+		mem.cache.RemoveKey(txsId[:])
 	}
 }
 
