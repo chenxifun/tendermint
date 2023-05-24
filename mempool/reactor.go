@@ -33,7 +33,7 @@ const (
 type Reactor struct {
 	p2p.BaseReactor
 	config  *cfg.MempoolConfig
-	mempool *CListBatchMempool
+	mempool *CListMempool
 	ids     *mempoolIDs
 }
 
@@ -101,7 +101,7 @@ func newMempoolIDs() *mempoolIDs {
 }
 
 // NewReactor returns a new Reactor with the given config and mempool.
-func NewReactor(config *cfg.MempoolConfig, mempool *CListBatchMempool) *Reactor {
+func NewReactor(config *cfg.MempoolConfig, mempool *CListMempool) *Reactor {
 	memR := &Reactor{
 		config:  config,
 		mempool: mempool,
@@ -179,11 +179,13 @@ func (memR *Reactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
 	if src != nil {
 		txInfo.SenderP2PID = src.ID()
 	}
-	err = memR.mempool.CheckBatchTx(msg.Txs, txInfo)
-	if err == ErrTxInCache {
-		memR.Logger.Debug("Tx already exists in cache", "tx", msg.Txs.TxsId())
-	} else if err != nil {
-		memR.Logger.Info("Could not check tx", "tx", msg.Txs.TxsId(), "err", err)
+	for _, tx := range msg.Txs {
+		err = memR.mempool.CheckTx(tx, nil, txInfo)
+		if err == ErrTxInCache {
+			memR.Logger.Debug("Tx already exists in cache", "tx", txID(tx))
+		} else if err != nil {
+			memR.Logger.Info("Could not check tx", "tx", txID(tx), "err", err)
+		}
 	}
 	// broadcasting happens from go routines per peer
 }
@@ -209,7 +211,7 @@ func (memR *Reactor) broadcastTxRoutine(peer p2p.Peer) {
 		if next == nil {
 			select {
 			case <-memR.mempool.TxsWaitChan(): // Wait until a tx is available
-				if next = memR.mempool.TxsBatchFront(); next == nil {
+				if next = memR.mempool.TxsFront(); next == nil {
 					continue
 				}
 			case <-peer.Quit():
@@ -232,22 +234,19 @@ func (memR *Reactor) broadcastTxRoutine(peer p2p.Peer) {
 		}
 
 		// Allow for a lag of 1 block.
-		memTxBatch := next.Value.(*mempoolTxBatch)
-		if peerState.GetHeight() < memTxBatch.Height()-1 {
+		memTx := next.Value.(*mempoolTx)
+		if peerState.GetHeight() < memTx.Height()-1 {
 			time.Sleep(peerCatchupSleepIntervalMS * time.Millisecond)
 			continue
 		}
 
 		// NOTE: Transaction batching was disabled due to
 		// https://github.com/tendermint/tendermint/issues/5796
-		var txs [][]byte
-		for _, tx := range memTxBatch.txs {
-			txs = append(txs, tx)
-		}
-		if _, ok := memTxBatch.senders.Load(peerID); !ok {
+
+		if _, ok := memTx.senders.Load(peerID); !ok {
 			msg := protomem.Message{
 				Sum: &protomem.Message_Txs{
-					Txs: &protomem.Txs{Txs: txs},
+					Txs: &protomem.Txs{Txs: [][]byte{memTx.tx}},
 				},
 			}
 			bz, err := msg.Marshal()
@@ -309,7 +308,7 @@ func (memR *Reactor) decodeMsg(bz []byte) (TxsMessage, error) {
 
 // TxsMessage is a Message containing transactions.
 type TxsMessage struct {
-	Txs types.Txs
+	Txs []types.Tx
 }
 
 // String returns a string representation of the TxsMessage.

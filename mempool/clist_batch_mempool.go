@@ -446,7 +446,7 @@ func (mem *CListBatchMempool) addTxBatch(memTx *mempoolTxBatch) {
 
 func (mem *CListBatchMempool) addTxToTxBatch() {
 	var txBatch = &mempoolTxBatch{}
-
+	var timeTicker = time.NewTicker(10 * time.Second)
 	for {
 		select {
 		case tx := <-mem.txs:
@@ -455,12 +455,14 @@ func (mem *CListBatchMempool) addTxToTxBatch() {
 				continue
 			}
 		case <-time.After(time.Duration(batchInterval) * time.Second):
+		case <-timeTicker.C:
 
 		}
 		if txBatch.size > 0 {
 			txBatch.hash = sha256.Sum256(txBatch.txHeader)
 			mem.addTxBatch(txBatch)
 			txBatch = &mempoolTxBatch{}
+			timeTicker.Reset(10 * time.Second)
 		}
 
 	}
