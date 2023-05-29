@@ -1300,8 +1300,6 @@ func (cs *State) enterPrevote(height int64, round int32, ctx context.Context) {
 
 func (cs *State) defaultDoPrevote(height int64, round int32) {
 	spanCtx, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.defaultDoPrevote")
-	span.SetAttributes(attribute.Int("round", int(round)))
-	span.SetAttributes(attribute.Int("height", int(height)))
 	defer span.End()
 	logger := cs.Logger.With("height", height, "round", round)
 
@@ -1973,8 +1971,8 @@ func (cs *State) addProposalBlockPart(msg *BlockPartMessage, peerID p2p.ID) (add
 
 	//addProposalBlockPartCtx, span := cs.tracer.Start(cs.blockPartCtx, "cs.state.addProposalBlockPart")
 	//defer span.End()
-	/*_, span := cs.tracer.Start(cs.blockPartCtx, "cs.state.addProposalBlockPart")
-	defer span.End()*/
+	_, span := cs.tracer.Start(cs.blockPartCtx, "cs.state.addProposalBlockPart")
+	defer span.End()
 
 	added, err = cs.ProposalBlockParts.AddPart(part)
 	if err != nil {

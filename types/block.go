@@ -134,6 +134,18 @@ func (b *Block) Hash() tmbytes.HexBytes {
 	return b.Header.Hash()
 }
 
+// HashesTo is a convenience function that checks if a block hashes to the given argument.
+// Returns false if the block is nil or the hash is empty.
+func (b *Block) HashesTo(hash []byte) bool {
+	if len(hash) == 0 {
+		return false
+	}
+	if b == nil {
+		return false
+	}
+	return bytes.Equal(b.Hash(), hash)
+}
+
 // MakePartSet returns a PartSet containing parts of a serialized block.
 // This is the form in which the block is gossipped to peers.
 // CONTRACT: partSize is greater than zero.
@@ -153,18 +165,6 @@ func (b *Block) MakePartSet(partSize uint32) *PartSet {
 		panic(err)
 	}
 	return NewPartSetFromData(bz, partSize)
-}
-
-// HashesTo is a convenience function that checks if a block hashes to the given argument.
-// Returns false if the block is nil or the hash is empty.
-func (b *Block) HashesTo(hash []byte) bool {
-	if len(hash) == 0 {
-		return false
-	}
-	if b == nil {
-		return false
-	}
-	return bytes.Equal(b.Hash(), hash)
 }
 
 // Size returns size of the block in bytes.

@@ -559,7 +559,7 @@ func (mem *CListMempool) ReapMaxBytesMaxGas(ctx context.Context, maxBytes, maxGa
 	defer mem.updateMtx.RUnlock()
 
 	//var totalGas int64
-	var lenth = 10000
+	var lenth = 12000
 
 	// TODO: we will get a performance boost if we have a good estimate of avg
 	// size per tx, and set the initial capacity based off of that.

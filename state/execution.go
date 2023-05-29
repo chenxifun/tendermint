@@ -10,6 +10,7 @@ import (
 	"time"
 
 	abci "github.com/tendermint/tendermint/abci/types"
+	abciType "github.com/tendermint/tendermint/abci/types"
 	cryptoenc "github.com/tendermint/tendermint/crypto/encoding"
 	"github.com/tendermint/tendermint/libs/fail"
 	"github.com/tendermint/tendermint/libs/log"
@@ -284,6 +285,7 @@ func execBlockOnProxyApp(ctx context.Context, logger log.Logger, proxyAppConn pr
 	defer span.End()
 
 	var validTxs, invalidTxs = 0, 0
+	var resp *abciType.ResponseFinalizeBlocker
 
 	txIndex := 0
 	abciResponses := new(tmstate.ABCIResponses)
@@ -319,7 +321,7 @@ func execBlockOnProxyApp(ctx context.Context, logger log.Logger, proxyAppConn pr
 	spanBeginBlock.End()*/
 
 	spanFinalizeBlockerCtx, spanFinalizeBlocker := global.StartSpan(spanCtx, "cs.state.FinalizeBlockerSync")
-	resp, err := proxyAppConn.FinalizeBlockerSync(spanFinalizeBlockerCtx, abci.RequestFinalizeBlocker{
+	resp, err = proxyAppConn.FinalizeBlockerSync(spanFinalizeBlockerCtx, abci.RequestFinalizeBlocker{
 		Height: uint64(block.Height),
 		Hash:   block.Hash(),
 	})
@@ -333,24 +335,55 @@ func execBlockOnProxyApp(ctx context.Context, logger log.Logger, proxyAppConn pr
 	if resp.ResponseBeginBlock != nil {
 		abciResponses.BeginBlock = resp.ResponseBeginBlock
 	} else {
-		_, spanBeginBlock := global.StartSpan(ctx, "cs.state.BeginBlock")
-		abciResponses.BeginBlock, err = proxyAppConn.BeginBlockSync(ctx, abci.RequestBeginBlock{
-			Hash:                block.Hash(),
-			Header:              *pbh,
-			LastCommitInfo:      commitInfo,
-			ByzantineValidators: byzVals,
+		logger.Info("FinalizeBlockerSync response is null !  execute  ProcessProposalSync")
+		rrocessProposalSyncresp, err := proxyAppConn.ProcessProposalSync(ctx, abci.RequestProcessProposal{
+			ChainId:            block.Header.ChainID,
+			Hash:               block.Header.Hash(),
+			Height:             block.Header.Height,
+			Time:               block.Header.Time,
+			Txs:                block.Data.Txs.ToSliceOfBytes(),
+			ProposedLastCommit: buildLastCommitInfo(block, store, initialHeight),
+			Misbehavior:        block.Evidence.Evidence.ToABCI(),
+			ProposerAddress:    block.ProposerAddress,
+			NextValidatorsHash: block.NextValidatorsHash,
 		})
 		if err != nil {
-			logger.Error("error in proxyAppConn.BeginBlock", "err", err)
+			logger.Error("error in proxyAppConn.ProcessProposalSync", "err", err)
 			return nil, err
 		}
-		spanBeginBlock.End()
+
+		if rrocessProposalSyncresp.Status == abci.ResponseProcessProposal_ACCEPT {
+			resp, err = proxyAppConn.FinalizeBlockerSync(spanFinalizeBlockerCtx, abci.RequestFinalizeBlocker{
+				Height: uint64(block.Height),
+				Hash:   block.Hash(),
+			})
+			logger.Info("FinalizeBlockerSync recive txResult size= " + strconv.Itoa(len(resp.ResponseDeliverTx)))
+			if resp == nil || err != nil {
+				logger.Error("error in proxyAppConn.FinalizeBlockerSync", "err", err)
+				return nil, err
+			}
+			abciResponses.BeginBlock = resp.ResponseBeginBlock
+		} else {
+			_, spanBeginBlock := global.StartSpan(ctx, "cs.state.BeginBlock")
+			abciResponses.BeginBlock, err = proxyAppConn.BeginBlockSync(ctx, abci.RequestBeginBlock{
+				Hash:                block.Hash(),
+				Header:              *pbh,
+				LastCommitInfo:      commitInfo,
+				ByzantineValidators: byzVals,
+			})
+			if err != nil {
+				logger.Error("error in proxyAppConn.BeginBlock", "err", err)
+				return nil, err
+			}
+			spanBeginBlock.End()
+		}
 	}
 	if resp.ResponseDeliverTx != nil {
 		for index, result := range resp.ResponseDeliverTx {
 			abciResponses.DeliverTxs[index] = result
 		}
 	} else {
+		logger.Info("FinalizeBlockerSync response is null !  execute  DeliverTx")
 		_, spanproxyCb := global.StartSpan(ctx, "cs.state.proxyCb")
 		spanproxyCb.End()
 		proxyCb := func(req *abci.Request, res *abci.Response) {
@@ -389,6 +422,7 @@ func execBlockOnProxyApp(ctx context.Context, logger log.Logger, proxyAppConn pr
 	if resp.ResponseEndBlock != nil {
 		abciResponses.EndBlock = resp.ResponseEndBlock
 	} else {
+		logger.Info("FinalizeBlockerSync response is null !  execute  EndBlockSync")
 		_, spanEndBlock := global.StartSpan(ctx, "cs.state. EndBlockSync")
 		// End block.
 		abciResponses.EndBlock, err = proxyAppConn.EndBlockSync(ctx, abci.RequestEndBlock{Height: block.Height})
