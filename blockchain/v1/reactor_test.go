@@ -160,7 +160,7 @@ func newBlockchainReactorPair(
 	maxBlockHeight int64) BlockchainReactorPair {
 
 	consensusReactor := &consensusReactorTest{}
-	consensusReactor.BaseReactor = *p2p.NewBaseReactor("Consensus reactor", consensusReactor)
+	consensusReactor.BaseReactor = *p2p.NewBaseReactor("Consensus reactor", consensusReactor, nil)
 
 	return BlockchainReactorPair{
 		newBlockchainReactor(t, logger, genDoc, privVals, maxBlockHeight),

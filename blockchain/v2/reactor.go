@@ -79,7 +79,7 @@ func newReactor(state state.State, store blockStore, reporter behaviour.Reporter
 		fastSync:  fastSync,
 	}
 
-	br.BaseReactor = *p2p.NewBaseReactor("blockchainv2", br, br.onReceive)
+	br.BaseReactor = *p2p.NewBaseReactor("blockchainv2", br, nil)
 	return br
 }
 
@@ -459,7 +459,7 @@ func (r *BlockchainReactor) Stop() error {
 }
 
 // Receive implements Reactor by handling different message types.
-func (r *BlockchainReactor) onReceive(chID byte, src p2p.Peer, msgBytes []byte) {
+func (r *BlockchainReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
 	msg, err := bc.DecodeMsg(msgBytes)
 	if err != nil {
 		r.logger.Error("error decoding message",

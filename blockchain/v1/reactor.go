@@ -99,7 +99,7 @@ func NewBlockchainReactor(state sm.State, blockExec *sm.BlockExecutor, store *st
 	}
 	fsm := NewFSM(startHeight, bcR)
 	bcR.fsm = fsm
-	bcR.BaseReactor = *p2p.NewBaseReactor("BlockchainReactor", bcR, bcR.onReceive)
+	bcR.BaseReactor = *p2p.NewBaseReactor("BlockchainReactor", bcR, nil)
 	// bcR.swReporter = behaviour.NewSwitchReporter(bcR.BaseReactor.Switch)
 
 	return bcR
@@ -250,7 +250,7 @@ func (bcR *BlockchainReactor) RemovePeer(peer p2p.Peer, reason interface{}) {
 }
 
 // Receive implements Reactor by handling 4 types of messages (look below).
-func (bcR *BlockchainReactor) onReceive(chID byte, src p2p.Peer, msgBytes []byte) {
+func (bcR *BlockchainReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
 	msg, err := bc.DecodeMsg(msgBytes)
 	if err != nil {
 		bcR.Logger.Error("error decoding message", "src", src, "chId", chID, "err", err)

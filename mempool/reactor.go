@@ -107,7 +107,7 @@ func NewReactor(config *cfg.MempoolConfig, mempool *CListMempool) *Reactor {
 		mempool: mempool,
 		ids:     newMempoolIDs(),
 	}
-	memR.BaseReactor = *p2p.NewBaseReactor("Mempool", memR, memR.onReceive)
+	memR.BaseReactor = *p2p.NewBaseReactor("Mempool", memR, nil)
 	return memR
 }
 
@@ -166,7 +166,7 @@ func (memR *Reactor) RemovePeer(peer p2p.Peer, reason interface{}) {
 
 // Receive implements Reactor.
 // It adds any received transactions to the mempool.
-func (memR *Reactor) onReceive(chID byte, src p2p.Peer, msgBytes []byte) {
+func (memR *Reactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
 	msg, err := memR.decodeMsg(msgBytes)
 	if err != nil {
 		memR.Logger.Error("Error decoding message", "src", src, "chId", chID, "err", err)

@@ -61,7 +61,7 @@ func NewReactor(consensusState *State, waitSync bool, options ...ReactorOption) 
 		waitSync: waitSync,
 		Metrics:  tmcon.NopMetrics(),
 	}
-	conR.BaseReactor = *p2p.NewBaseReactor("Consensus", conR, conR.onReceive)
+	conR.BaseReactor = *p2p.NewBaseReactor("Consensus", conR, nil)
 
 	for _, option := range options {
 		option(conR)
@@ -223,7 +223,7 @@ func (conR *Reactor) RemovePeer(peer p2p.Peer, reason interface{}) {
 // Peer state updates can happen in parallel, but processing of
 // proposals, block parts, and votes are ordered by the receiveRoutine
 // NOTE: blocks on consensus state for proposals, block parts, and votes
-func (conR *Reactor) onReceive(chID byte, src p2p.Peer, msgBytes []byte) {
+func (conR *Reactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
 	if !conR.IsRunning() {
 		conR.Logger.Debug("Receive", "src", src, "chId", chID, "bytes", msgBytes)
 		return
