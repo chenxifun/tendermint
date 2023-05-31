@@ -69,7 +69,9 @@ func NewBaseReactor(name string, impl Reactor, onReceive func(chID byte, peer Pe
 		onReceive:   onReceive,
 		Switch:      nil,
 	}
-	go baseReactor.dealReceiveMsg()
+	if onReceive != nil {
+		go baseReactor.dealReceiveMsg()
+	}
 	return baseReactor
 }
 
@@ -86,6 +88,9 @@ func (*BaseReactor) GetChannels() []*conn.ChannelDescriptor   { return nil }
 func (*BaseReactor) AddPeer(peer Peer)                        {}
 func (*BaseReactor) RemovePeer(peer Peer, reason interface{}) {}
 func (br *BaseReactor) Receive(chID byte, peer Peer, msgBytes []byte) {
+	if br.onReceive == nil {
+		panic("neither onReceive nor Receive exist")
+	}
 	br.msgBuffer <- &RecvPacket{chID: chID, peer: peer, msgBytes: msgBytes}
 }
 func (*BaseReactor) InitPeer(peer Peer) Peer { return peer }
