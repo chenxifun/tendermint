@@ -1,6 +1,7 @@
 package p2p
 
 import (
+	"encoding/hex"
 	"fmt"
 	"github.com/tendermint/tendermint/libs/service"
 	"github.com/tendermint/tendermint/p2p/conn"
@@ -79,7 +80,7 @@ func NewBaseReactor(name string, impl Reactor, onReceive func(chID byte, peer Pe
 func (br *BaseReactor) dealReceiveMsg() {
 	for recvPacket := range br.msgBuffer {
 		if recvPacket.chID == 0x30 {
-			fmt.Println(fmt.Sprintf("BaseReactor Recv Mem{%s}: %s", recvPacket.peer.String(), recvPacket.msgBytes))
+			fmt.Println(fmt.Sprintf("BaseReactor Recv Mem{%s}: %s", recvPacket.peer.String(), hex.EncodeToString(recvPacket.msgBytes)))
 		}
 		br.onReceive(recvPacket.chID, recvPacket.peer, recvPacket.msgBytes)
 	}
