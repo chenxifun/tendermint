@@ -73,7 +73,7 @@ func NewBaseReactor(name string, impl Reactor, onReceive func(chID byte, peer Pe
 	return baseReactor
 }
 
-func (br BaseReactor) dealReceiveMsg() {
+func (br *BaseReactor) dealReceiveMsg() {
 	for recvPacket := range br.msgBuffer {
 		br.onReceive(recvPacket.chID, recvPacket.peer, recvPacket.msgBytes)
 	}
