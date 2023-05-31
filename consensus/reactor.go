@@ -228,7 +228,7 @@ func (conR *Reactor) onReceive(chID byte, src p2p.Peer, msgBytes []byte) {
 
 	msg, err := decodeMsg(msgBytes)
 	if err != nil {
-		conR.Logger.Error("Error decoding message", "src", src, "chId", chID, "err", err)
+		conR.Logger.Error("Error decoding message", "src", src.String(), "chId", chID, "err", err, "msgBytes", msgBytes)
 		conR.Switch.StopPeerForError(src, err)
 		return
 	}
