@@ -1,6 +1,7 @@
 package p2p
 
 import (
+	"fmt"
 	"github.com/tendermint/tendermint/libs/service"
 	"github.com/tendermint/tendermint/p2p/conn"
 )
@@ -77,6 +78,9 @@ func NewBaseReactor(name string, impl Reactor, onReceive func(chID byte, peer Pe
 
 func (br *BaseReactor) dealReceiveMsg() {
 	for recvPacket := range br.msgBuffer {
+		if recvPacket.chID == 0x30 {
+			fmt.Println(fmt.Sprintf("BaseReactor Recv Mem{%s}: %s", recvPacket.peer.String(), recvPacket.msgBytes))
+		}
 		br.onReceive(recvPacket.chID, recvPacket.peer, recvPacket.msgBytes)
 	}
 }
@@ -90,6 +94,9 @@ func (*BaseReactor) RemovePeer(peer Peer, reason interface{}) {}
 func (br *BaseReactor) Receive(chID byte, peer Peer, msgBytes []byte) {
 	if br.onReceive == nil {
 		panic("neither onReceive nor Receive exist")
+	}
+	if chID == 0x30 {
+		fmt.Println(fmt.Sprintf("BaseReactor Recv Mem{%s}: %s", peer.String(), msgBytes))
 	}
 	br.msgBuffer <- &RecvPacket{chID: chID, peer: peer, msgBytes: msgBytes}
 }
