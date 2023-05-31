@@ -70,7 +70,7 @@ func newReactor(state state.State, store blockStore, reporter behaviour.Reporter
 	// newPcState requires a processorContext
 	processor := newPcState(pContext)
 
-	return &BlockchainReactor{
+	br := &BlockchainReactor{
 		scheduler: newRoutine("scheduler", scheduler.handle, chBufferSize),
 		processor: newRoutine("processor", processor.handle, chBufferSize),
 		store:     store,
@@ -78,6 +78,9 @@ func newReactor(state state.State, store blockStore, reporter behaviour.Reporter
 		logger:    log.NewNopLogger(),
 		fastSync:  fastSync,
 	}
+
+	br.BaseReactor = *p2p.NewBaseReactor("blockchainv2", br, br.onReceive)
+	return br
 }
 
 // NewBlockchainReactor creates a new reactor instance.
@@ -456,7 +459,7 @@ func (r *BlockchainReactor) Stop() error {
 }
 
 // Receive implements Reactor by handling different message types.
-func (r *BlockchainReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
+func (r *BlockchainReactor) onReceive(chID byte, src p2p.Peer, msgBytes []byte) {
 	msg, err := bc.DecodeMsg(msgBytes)
 	if err != nil {
 		r.logger.Error("error decoding message",

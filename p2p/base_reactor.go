@@ -49,23 +49,43 @@ type Reactor interface {
 
 //--------------------------------------
 
+type RecvPacket struct {
+	chID     byte
+	peer     Peer
+	msgBytes []byte
+}
+
 type BaseReactor struct {
 	service.BaseService // Provides Start, Stop, .Quit
+	msgBuffer           chan *RecvPacket
+	onReceive           func(chID byte, peer Peer, msgBytes []byte)
 	Switch              *Switch
 }
 
-func NewBaseReactor(name string, impl Reactor) *BaseReactor {
-	return &BaseReactor{
+func NewBaseReactor(name string, impl Reactor, onReceive func(chID byte, peer Peer, msgBytes []byte)) *BaseReactor {
+	baseReactor := &BaseReactor{
 		BaseService: *service.NewBaseService(nil, name, impl),
+		msgBuffer:   make(chan *RecvPacket, 100000),
+		onReceive:   onReceive,
 		Switch:      nil,
+	}
+	go baseReactor.dealReceiveMsg()
+	return baseReactor
+}
+
+func (br BaseReactor) dealReceiveMsg() {
+	for recvPacket := range br.msgBuffer {
+		br.onReceive(recvPacket.chID, recvPacket.peer, recvPacket.msgBytes)
 	}
 }
 
 func (br *BaseReactor) SetSwitch(sw *Switch) {
 	br.Switch = sw
 }
-func (*BaseReactor) GetChannels() []*conn.ChannelDescriptor        { return nil }
-func (*BaseReactor) AddPeer(peer Peer)                             {}
-func (*BaseReactor) RemovePeer(peer Peer, reason interface{})      {}
-func (*BaseReactor) Receive(chID byte, peer Peer, msgBytes []byte) {}
-func (*BaseReactor) InitPeer(peer Peer) Peer                       { return peer }
+func (*BaseReactor) GetChannels() []*conn.ChannelDescriptor   { return nil }
+func (*BaseReactor) AddPeer(peer Peer)                        {}
+func (*BaseReactor) RemovePeer(peer Peer, reason interface{}) {}
+func (br *BaseReactor) Receive(chID byte, peer Peer, msgBytes []byte) {
+	br.msgBuffer <- &RecvPacket{chID: chID, peer: peer, msgBytes: msgBytes}
+}
+func (*BaseReactor) InitPeer(peer Peer) Peer { return peer }
