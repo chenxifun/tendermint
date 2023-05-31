@@ -1,6 +1,7 @@
 package mempool
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math"
@@ -169,7 +170,7 @@ func (memR *Reactor) RemovePeer(peer p2p.Peer, reason interface{}) {
 func (memR *Reactor) onReceive(chID byte, src p2p.Peer, msgBytes []byte) {
 	msg, err := memR.decodeMsg(msgBytes)
 	if err != nil {
-		memR.Logger.Error("Error decoding message", "src", src, "chId", chID, "err", err)
+		memR.Logger.Error("Error decoding message", "src", src.String(), "chId", chID, "err", err, "msgBytes", hex.EncodeToString(msgBytes))
 		memR.Switch.StopPeerForError(src, err)
 		return
 	}
