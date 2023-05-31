@@ -97,7 +97,7 @@ func (br *BaseReactor) Receive(chID byte, peer Peer, msgBytes []byte) {
 		panic("neither onReceive nor Receive exist")
 	}
 	if chID == 0x30 {
-		fmt.Println(fmt.Sprintf("BaseReactor Recv Mem{%s}: %s", peer.String(), msgBytes))
+		fmt.Println(fmt.Sprintf("BaseReactor Recv Mem{%s}: %s", peer.String(), hex.EncodeToString(msgBytes)))
 	}
 	br.msgBuffer <- &RecvPacket{chID: chID, peer: peer, msgBytes: msgBytes}
 }
