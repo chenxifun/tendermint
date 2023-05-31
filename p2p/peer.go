@@ -377,7 +377,7 @@ func createMConnection(
 ) *tmconn.MConnection {
 
 	onReceive := func(chID byte, msgBytes []byte) {
-		if chID == 0x48 {
+		if chID == 0x30 {
 			fmt.Println(fmt.Sprintf("MEM P2P Msg Recv: %s", hex.EncodeToString(msgBytes)))
 		}
 		reactor := reactorsByCh[chID]

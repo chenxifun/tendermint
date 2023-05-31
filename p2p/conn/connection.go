@@ -778,7 +778,7 @@ func (ch *Channel) SetLogger(l log.Logger) {
 // Goroutine-safe
 // Times out (and returns false) after defaultSendTimeout
 func (ch *Channel) sendBytes(bytes []byte) bool {
-	if ch.desc.ID == 0x48 {
+	if ch.desc.ID == 0x30 {
 		fmt.Println(fmt.Sprintf("MEM P2P Msg Want To Send: %s", hex.EncodeToString(bytes)))
 	}
 	select {
@@ -833,7 +833,7 @@ func (ch *Channel) nextPacketMsg() tmp2p.PacketMsg {
 	packet := tmp2p.PacketMsg{ChannelID: int32(ch.desc.ID)}
 	maxSize := ch.maxPacketMsgPayloadSize
 	packet.Data = ch.sending[:tmmath.MinInt(maxSize, len(ch.sending))]
-	if ch.desc.ID == 0x48 {
+	if ch.desc.ID == 0x30 {
 		fmt.Println(fmt.Sprintf("MEM P2P Packet Send: %s", hex.EncodeToString(packet.Data)))
 	}
 	if len(ch.sending) <= maxSize {
@@ -865,7 +865,7 @@ func (ch *Channel) recvPacketMsg(packet tmp2p.PacketMsg) ([]byte, error) {
 	if recvCap < recvReceived {
 		return nil, fmt.Errorf("received message exceeds available capacity: %v < %v", recvCap, recvReceived)
 	}
-	if ch.desc.ID == 0x48 {
+	if ch.desc.ID == 0x30 {
 		fmt.Println(fmt.Sprintf("MEM P2P Msg Recv Raw: %s", hex.EncodeToString(packet.Data)))
 	}
 	ch.recving = append(ch.recving, packet.Data...)
