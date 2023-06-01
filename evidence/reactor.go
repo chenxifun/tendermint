@@ -37,7 +37,7 @@ func NewReactor(evpool *Pool) *Reactor {
 	evR := &Reactor{
 		evpool: evpool,
 	}
-	evR.BaseReactor = *p2p.NewBaseReactor("Evidence", evR, nil)
+	evR.BaseReactor = *p2p.NewBaseReactor("Evidence", evR, evR.onReceive)
 	return evR
 }
 
@@ -66,7 +66,7 @@ func (evR *Reactor) AddPeer(peer p2p.Peer) {
 
 // Receive implements Reactor.
 // It adds any received evidence to the evpool.
-func (evR *Reactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
+func (evR *Reactor) onReceive(chID byte, src p2p.Peer, msgBytes []byte) {
 	evis, err := decodeMsg(msgBytes)
 	if err != nil {
 		evR.Logger.Error("Error decoding message", "src", src, "chId", chID, "err", err)

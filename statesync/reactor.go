@@ -53,7 +53,7 @@ func NewReactor(
 		conn:      conn,
 		connQuery: connQuery,
 	}
-	r.BaseReactor = *p2p.NewBaseReactor("StateSync", r, nil)
+	r.BaseReactor = *p2p.NewBaseReactor("StateSync", r, r.onReceive)
 
 	return r
 }
@@ -100,7 +100,7 @@ func (r *Reactor) RemovePeer(peer p2p.Peer, reason interface{}) {
 }
 
 // Receive implements p2p.Reactor.
-func (r *Reactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
+func (r *Reactor) onReceive(chID byte, src p2p.Peer, msgBytes []byte) {
 	if !r.IsRunning() {
 		return
 	}
