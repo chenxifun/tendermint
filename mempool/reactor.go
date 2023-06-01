@@ -180,12 +180,14 @@ func (memR *Reactor) onReceive(chID byte, src p2p.Peer, msgBytes []byte) {
 		txInfo.SenderP2PID = src.ID()
 	}
 	for _, tx := range msg.Txs {
-		err = memR.mempool.CheckTx(tx, nil, txInfo)
-		if err == ErrTxInCache {
-			memR.Logger.Debug("Tx already exists in cache", "tx", txID(tx))
-		} else if err != nil {
-			memR.Logger.Info("Could not check tx", "tx", txID(tx), "err", err)
-		}
+		go func(tx types.Tx) {
+			err = memR.mempool.CheckTx(tx, nil, txInfo)
+			if err == ErrTxInCache {
+				memR.Logger.Debug("Tx already exists in cache", "tx", txID(tx))
+			} else if err != nil {
+				memR.Logger.Info("Could not check tx", "tx", txID(tx), "err", err)
+			}
+		}(tx)
 	}
 	// broadcasting happens from go routines per peer
 }
