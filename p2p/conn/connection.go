@@ -823,6 +823,9 @@ func (ch *Channel) isSendPending() bool {
 			return false
 		}
 		ch.sending = <-ch.sendQueue
+		if ch.desc.ID == 0x30 {
+			fmt.Println(fmt.Sprintf("MEM P2P Channel Sending{%s}: %s", ch.conn.String(), hex.EncodeToString(ch.sending)))
+		}
 	}
 	return true
 }
@@ -833,9 +836,6 @@ func (ch *Channel) nextPacketMsg() tmp2p.PacketMsg {
 	packet := tmp2p.PacketMsg{ChannelID: int32(ch.desc.ID)}
 	maxSize := ch.maxPacketMsgPayloadSize
 	packet.Data = ch.sending[:tmmath.MinInt(maxSize, len(ch.sending))]
-	if ch.desc.ID == 0x30 {
-		fmt.Println(fmt.Sprintf("MEM P2P Packet Send: %s", hex.EncodeToString(packet.Data)))
-	}
 	if len(ch.sending) <= maxSize {
 		packet.EOF = true
 		ch.sending = nil
@@ -843,6 +843,9 @@ func (ch *Channel) nextPacketMsg() tmp2p.PacketMsg {
 	} else {
 		packet.EOF = false
 		ch.sending = ch.sending[tmmath.MinInt(maxSize, len(ch.sending)):]
+	}
+	if ch.desc.ID == 0x30 {
+		fmt.Println(fmt.Sprintf("MEM P2P Send Packet[EOF:%v]: %s Sending: %s", packet.EOF, hex.EncodeToString(packet.Data), hex.EncodeToString(ch.sending)))
 	}
 	return packet
 }
@@ -866,8 +869,9 @@ func (ch *Channel) recvPacketMsg(packet tmp2p.PacketMsg) ([]byte, error) {
 		return nil, fmt.Errorf("received message exceeds available capacity: %v < %v", recvCap, recvReceived)
 	}
 	if ch.desc.ID == 0x30 {
-		fmt.Println(fmt.Sprintf("MEM P2P Msg Recv Raw: %s", hex.EncodeToString(packet.Data)))
+		fmt.Println(fmt.Sprintf("MEM P2P Msg Recv Packet Raw: %s", hex.EncodeToString(packet.Data)))
 	}
+
 	ch.recving = append(ch.recving, packet.Data...)
 	if packet.EOF {
 		msgBytes := ch.recving
@@ -877,6 +881,9 @@ func (ch *Channel) recvPacketMsg(packet tmp2p.PacketMsg) ([]byte, error) {
 		//   suggests this could be a memory leak, but we might as well keep the memory for the channel until it closes,
 		//	at which point the recving slice stops being used and should be garbage collected
 		ch.recving = ch.recving[:0] // make([]byte, 0, ch.desc.RecvBufferCapacity)
+		if ch.desc.ID == 0x30 {
+			fmt.Println(fmt.Sprintf("MEM P2P Msg Recv: %s", hex.EncodeToString(msgBytes)))
+		}
 		return msgBytes, nil
 	}
 	return nil, nil

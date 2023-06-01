@@ -378,7 +378,7 @@ func createMConnection(
 
 	onReceive := func(chID byte, msgBytes []byte) {
 		if chID == 0x30 {
-			fmt.Println(fmt.Sprintf("MEM P2P Msg Recv: %s", hex.EncodeToString(msgBytes)))
+			fmt.Println(fmt.Sprintf("MConn Msg onRecv: %s", hex.EncodeToString(msgBytes)))
 		}
 		reactor := reactorsByCh[chID]
 		if reactor == nil {
@@ -393,7 +393,6 @@ func createMConnection(
 		p.metrics.PeerReceiveBytesTotal.With(labels...).Add(float64(len(msgBytes)))
 		reactor.Receive(chID, p, msgBytes)
 	}
-
 	onError := func(r interface{}) {
 		onPeerError(p, r)
 	}
