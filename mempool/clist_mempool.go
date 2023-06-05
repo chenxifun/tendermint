@@ -26,7 +26,7 @@ import (
 // TxKeySize is the size of the transaction key index
 const TxKeySize = sha256.Size
 
-var BlockTxSize = 12000
+var BlockTxSize = 20000
 
 var newline = []byte("\n")
 
