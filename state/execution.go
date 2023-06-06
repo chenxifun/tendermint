@@ -217,7 +217,7 @@ func (blockExec *BlockExecutor) ApplyBlock(ctx context.Context, state State, blo
 
 	// Events are fired after everything else.
 	// NOTE: if we crash between Commit and Save, events wont be fired during replay
-	go fireEvents(blockExec.logger, blockExec.eventBus, block, abciResponses, validatorUpdates)
+	//go fireEvents(blockExec.logger, blockExec.eventBus, block, abciResponses, validatorUpdates)
 
 	return state, retainHeight, nil
 }

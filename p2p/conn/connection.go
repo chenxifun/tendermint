@@ -303,6 +303,7 @@ func (c *MConnection) FlushStop() {
 
 // OnStop implements BaseService
 func (c *MConnection) OnStop() {
+	fmt.Println("为什么MConnection会停呢？", debug.Stack())
 	if c.stopServices() {
 		return
 	}
@@ -419,6 +420,9 @@ func (c *MConnection) CanSend(chID byte) bool {
 
 // sendRoutine polls for packets to send from channels.
 func (c *MConnection) sendRoutine() {
+	defer func() {
+		fmt.Println("为什么sendRoutine会停呢", string(debug.Stack()))
+	}()
 	defer c._recover()
 
 	protoWriter := protoio.NewDelimitedWriter(c.bufConnWriter)
@@ -557,6 +561,9 @@ func (c *MConnection) sendPacketMsg() bool {
 // Blocks depending on how the connection is throttled.
 // Otherwise, it never blocks.
 func (c *MConnection) recvRoutine() {
+	defer func() {
+		fmt.Println("为什么recv routine会停呢", string(debug.Stack()))
+	}()
 	defer c._recover()
 
 	protoReader := protoio.NewDelimitedReader(c.bufConnReader, c._maxPacketMsgSize)

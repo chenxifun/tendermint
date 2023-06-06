@@ -65,7 +65,7 @@ type BaseReactor struct {
 func NewBaseReactor(name string, impl Reactor, onReceive func(chID byte, peer Peer, msgBytes []byte)) *BaseReactor {
 	baseReactor := &BaseReactor{
 		BaseService: *service.NewBaseService(nil, name, impl),
-		msgBuffer:   make(chan *RecvPacket, 10000000),
+		msgBuffer:   make(chan *RecvPacket, 100000000),
 		onReceive:   onReceive,
 		Switch:      nil,
 	}

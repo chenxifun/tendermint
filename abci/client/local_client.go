@@ -145,8 +145,8 @@ func (app *localClient) InitChainAsync(req types.RequestInitChain) *ReqRes {
 }
 
 func (app *localClient) ProcessProposalAsync(ctx context.Context, req types.RequestProcessProposal) *ReqRes {
-	/*app.mtx.Lock()
-	defer app.mtx.Unlock()*/
+	app.mtx.Lock()
+	defer app.mtx.Unlock()
 
 	res := app.Application.ProcessProposal(ctx, req)
 	return app.callback(
@@ -156,8 +156,8 @@ func (app *localClient) ProcessProposalAsync(ctx context.Context, req types.Requ
 }
 
 func (app *localClient) FinalizeBlockerAsync(ctx context.Context, req types.RequestFinalizeBlocker) *ReqRes {
-	/*app.mtx.Lock()
-	defer app.mtx.Unlock()*/
+	app.mtx.Lock()
+	defer app.mtx.Unlock()
 	res := app.Application.FinalizeBlocker(ctx, req)
 	return app.callback(
 		types.ToRequestFinalizeBlocker(req),
