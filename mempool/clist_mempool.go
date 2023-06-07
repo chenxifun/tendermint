@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/VictoriaMetrics/fastcache"
 	"github.com/tendermint/tendermint/tools/global"
+	"strconv"
 	"sync"
 	"sync/atomic"
 
@@ -26,9 +27,19 @@ import (
 // TxKeySize is the size of the transaction key index
 const TxKeySize = sha256.Size
 
-var BlockTxSize = 50000
+var BlockTxSize = ""
+var blockTxSize = 50000
 
 var newline = []byte("\n")
+
+func init() {
+	if len(BlockTxSize) > 0 {
+		size, err := strconv.ParseInt(BlockTxSize, 10, 64)
+		if err == nil {
+			blockTxSize = int(size)
+		}
+	}
+}
 
 //--------------------------------------------------------------------------------
 
@@ -565,7 +576,7 @@ func (mem *CListMempool) ReapMaxBytesMaxGas(ctx context.Context, maxBytes, maxGa
 	// TODO: we will get a performance boost if we have a good estimate of avg
 	// size per tx, and set the initial capacity based off of that.
 	// txs := make([]types.Tx, 0, tmmath.MinInt(mem.txs.Len(), max/mem.avgTxSize))
-	memTxs := mem.txs.FrontBatch(BlockTxSize)
+	memTxs := mem.txs.FrontBatch(blockTxSize)
 	txs := make([]types.Tx, 0, len(memTxs))
 	/*for e := mem.txs.Front(); e != nil; e = e.Next() {
 		memTx := e.Value.(*mempoolTx)
