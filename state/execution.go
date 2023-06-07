@@ -7,6 +7,7 @@ import (
 	"github.com/tendermint/tendermint/tools/global"
 	"go.opentelemetry.io/otel/attribute"
 	"strconv"
+	"sync"
 	"time"
 
 	abci "github.com/tendermint/tendermint/abci/types"
@@ -274,12 +275,16 @@ func (blockExec *BlockExecutor) Commit(ctx context.Context, state State, block *
 	return res.Data, res.RetainHeight, err
 }
 
+var execBlockLock = &sync.Mutex{}
+
 //---------------------------------------------------------
 // Helper functions for executing blocks and updating state
 
 // Executes block's transactions on proxyAppConn.
 // Returns a list of transaction results and updates to the validator set
 func execBlockOnProxyApp(ctx context.Context, logger log.Logger, proxyAppConn proxy.AppConnConsensus, block *types.Block, store Store, initialHeight int64) (*tmstate.ABCIResponses, error) {
+	execBlockLock.Lock()
+	defer execBlockLock.Unlock()
 	spanCtx, span := global.StartSpan(ctx, "cs.state.execBlockOnProxyApp")
 	ctx = spanCtx
 	defer span.End()
