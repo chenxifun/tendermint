@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"reflect"
 	"runtime/debug"
+	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -83,6 +84,10 @@ func (wm *WebsocketManager) WebsocketHandler(w http.ResponseWriter, r *http.Requ
 			wm.logger.Error("Failed to close connection", "err", err)
 		}
 	}()
+
+	if strings.Contains(wsConn.RemoteAddr().String(), "127.0.0.1") {
+		fmt.Println("连接毛线localhost，让我看看谁在调用: ", string(debug.Stack()))
+	}
 
 	// register connection
 	con := newWSConnection(wsConn, wm.funcMap, wm.wsConnOptions...)
